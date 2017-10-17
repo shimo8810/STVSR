@@ -1,2 +1,2 @@
-# FIVSR
-frame-interpolation + video super-resolution
+# STVSR(Spatio-Temporal Video Super-Resolution)
+
