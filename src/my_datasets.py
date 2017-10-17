@@ -16,6 +16,8 @@ class SequenceDataset(chainer.dataset.DatasetMixin):
             h5file = h5py.File(path.join(ROOT_PATH, 'dataset/SCENE10_2K_60fps.hdf5'))
         elif dataset == 'SCENE1':
             h5file = h5py.File(path.join(ROOT_PATH, 'dataset/SCENE1_2K_for_fi.hdf5'))
+        elif dataset == 'SCENE1_mini':
+            h5file = h5py.File(path.join(ROOT_PATH, 'dataset/SCENE1_2K_mini.hdf5'))
         self.x_data = h5file['x_data']
         self.y_data = h5file['y_data']
 
@@ -23,4 +25,4 @@ class SequenceDataset(chainer.dataset.DatasetMixin):
         return len(self.x_data)
 
     def get_example(self, i):
-        return self.x_data[i], self.y_data[i]
+        return np.array(self.x_data[i]), np.array(self.y_data[i])
