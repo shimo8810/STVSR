@@ -21,8 +21,8 @@ Scl = 3
 if __name__ == '__main__':
     #パス情報
     # images_path = '/media/shimo/HDD_storage/DataSet/SCENE_10/2K_SCENE/SCENE_01/*.tiff'
-    images_path = '/media/shimo/HDD_storage/DataSet/SCENE_1/2K_images/*.tiff'
-    hdf5_path = '/home/shimo/CMULAB/STVSR/dataset/SCENE1_2K_for_fi.hdf5'
+    images_path = '/media/shimo/HDD_storage/DataSet/SCENE_1/2K_images_mini/*.tiff'
+    hdf5_path = '/home/shimo/CMULAB/STVSR/dataset/SCENE1_2K_mini.hdf5'
     #画像連番リスト
     image_names = sorted(glob.glob(images_path))
     #ソース動画のサイズ取得

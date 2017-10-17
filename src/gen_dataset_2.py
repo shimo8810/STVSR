@@ -27,9 +27,9 @@ if __name__ == '__main__':
     #画像連番リスト
     outfile = h5py.File(SAVE_PATH, 'w')
     x_dset = outfile.create_dataset('x_data', shape=(1, 2, H, W), dtype=np.float32,
-         maxshape=(None, 2, H, W), chunks=True)
+         maxshape=(None, 2, H, W))
     y_dset = outfile.create_dataset('y_data', shape=(1, 1, H, W), dtype=np.float32,
-         maxshape=(None, 1, H, W), chunks=True)
+         maxshape=(None, 1, H, W))
     data_size = 0
     for scene_dir in sorted(os.listdir(DATA_PATH)):
         print(scene_dir)
