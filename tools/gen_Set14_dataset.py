@@ -31,10 +31,8 @@ if __name__ == '__main__':
     image_list = sorted(os.listdir(DATA_PATH))
     h5file = h5py.File(path.join(SAVE_PATH, 'Set14_test.hdf5'), 'w')
 
-    x_dset = h5file.create_dataset('x_data',
-                                   shape=(1, HEIGHT, WIDTH), dtype=np.float32, maxshape=(None, HEIGHT, WIDTH))
-    y_dset = h5file.create_dataset('y_data',
-                                   shape=(1, HEIGHT, WIDTH), dtype=np.float32, maxshape=(None, HEIGHT, WIDTH))
+    x_dset = h5file.create_dataset('x_data',shape=(1, 1, HEIGHT, WIDTH), dtype=np.float32, maxshape=(None, 1, HEIGHT, WIDTH))
+    y_dset = h5file.create_dataset('y_data',shape=(1, 1, HEIGHT, WIDTH), dtype=np.float32, maxshape=(None, 1, HEIGHT, WIDTH))
 
     num_data = 0
     for name in tqdm(image_list):
@@ -52,8 +50,8 @@ if __name__ == '__main__':
                 dwn_img = imresize(
                     crop_img, (HEIGHT // SCALE, WIDTH // SCALE), interp='bicubic')
                 dwn_img = imresize(dwn_img, (HEIGHT, WIDTH), interp='bicubic')
-                x_dset.resize((num_data + 1, HEIGHT, WIDTH))
-                y_dset.resize((num_data + 1, HEIGHT, WIDTH))
+                x_dset.resize((num_data + 1, 1, HEIGHT, WIDTH))
+                y_dset.resize((num_data + 1, 1, HEIGHT, WIDTH))
                 x_dset[num_data, :, :] = crop_img
                 y_dset[num_data, :, :] = dwn_img
                 num_data += 1
