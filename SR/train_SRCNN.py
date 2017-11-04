@@ -2,7 +2,6 @@
 train SRCNN Network
 simple network
 '''
-
 import os
 from os import path
 import argparse
@@ -35,7 +34,7 @@ class GenEvaluator(chainer.Chain):
         super(GenEvaluator, self).__init__()
         self.y = None
         self.loss = None
-        self.acc = None
+        self.psnr = None
 
         with self.init_scope():
             self.generator = generator
@@ -43,20 +42,21 @@ class GenEvaluator(chainer.Chain):
     def __call__(self, x, t):
         self.y = None
         self.loss = None
-        self.acc = None
+        self.psnr = None
         self.y = self.generator(x)
         self.loss = F.mean_squared_error(self.y, t)
-        reporter.report({'loss': self.loss, 'accuracy': self.acc}, self)
+        self.psnr = 10 * F.log10(1.0 / self.loss)
+        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
         return self.loss
 
 
 class SRCNN(chainer.Chain):
-    def __init__(self):
+    def __init__(self, ch_scale=1, fil_sizes=(9,5,5)):
         super(SRCNN, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
-            self.conv2 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
-            self.conv3 = L.Convolution2D(None, 1, ksize=3, stride=1, pad=1)
+            self.conv1 = L.Convolution2D(None, ch_scale * 32, ksize=fil_sizes[0], stride=1, pad=fil_sizes[0] // 2)
+            self.conv2 = L.Convolution2D(None, ch_scale * 16, ksize=fil_sizes[1], stride=1, pad=fil_sizes[1] // 2)
+            self.conv3 = L.Convolution2D(None, 1, ksize=fil_sizes[2], stride=1, pad=fil_sizes[2] // 2)
 
     def __call__(self, x):
         h = F.relu(self.conv1(x))
@@ -67,19 +67,16 @@ class SRCNN(chainer.Chain):
 def transform(data):
     x_img, y_img = data
 
-    x_flip, y_flip, rot, noise = np.random.choice([True, False], 4)
+    x_flip, y_flip, rot = np.random.choice([True, False], 3)
     # random flip
     x_img = transforms.flip(x_img, y_flip=y_flip, x_flip=x_flip)
     y_img = transforms.flip(y_img, y_flip=y_flip, x_flip=x_flip)
 
     # # random rot
-    # if rot:
-    #     x_img = np.rot90(x_img)
-    #     y_img = np.rot90(y_img)
+    if rot:
+        x_img = np.rot90(x_img, axes=(-2, -1))
+        y_img = np.rot90(y_img, axes=(-2, -1))
 
-    # # random noise
-    # if noise:
-    #     transforms.pca_lighting(x_img, 0.1)
     return x_img, y_img
 
 def load_dataset():
@@ -112,36 +109,61 @@ def main():
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
-
+    parser.add_argument('--ch_scale', '-c', type=int, default=1,
+                        help='ch scale')
+    parser.add_argument('--fil_sizes', '-f', type=int, nargs='+', default=[9, 5, 5],
+                        help='filter(kernel) sizes')
+    parser.add_argument('--iter_parallel', action='store_true', default=False,
+                        help='filter(kernel) sizes')
     args = parser.parse_args()
+
+    # parameter出力
+    print("-=Learning Parameter=-")
+    print("# Max Epochs: {}".format(args.epoch))
+    print("# Batch Size: {}".format(args.batchsize))
+    print("# Learning Rate: {}".format(args.learnrate))
+    print("# Number of Filter: {}".format(args.ch_scale))
+    print("# Sizes of Filter: {}-{}-{}".format(*args.fil_sizes))
+    print('# Train Dataet: General 100')
+    print('# Test Dataet: Set 14')
+    if args.iter_parallel:
+        print("# Data Iters that loads in Parallel")
+    print("\n")
 
     # 保存ディレクトリ
     # save didrectory
-    outdir = path.join(ROOT_PATH, 'results/SRCNN')
+    outdir = path.join(ROOT_PATH, 'results/SRCNN_Channel_Scale_{}_Filter_Size_{}{}{}'.format(args.ch_scale, *args.fil_sizes))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
         for k, v in args.__dict__.items():
             f.write('{}:{}\n'.format(k, v))
 
-    print('# loading dataet( General100, Set14) ...')
+    print('# loading dataet(General100, Set14) ...')
     train, test = load_dataset()
 
    # prepare model
-    model = GenEvaluator(SRCNN())
+    model = GenEvaluator(SRCNN(ch_scale=args.ch_scale, fil_sizes=args.fil_sizes))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
 
 
     # setup optimizer
-    optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate)
+    optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
     optimizer.setup(model)
+    optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
 
     # setup iter
-    train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
-    test_iter = chainer.iterators.SerialIterator(
-        test, args.batchsize, repeat=False, shuffle=False)
+    if args.iter_parallel:
+        train_iter = chainer.iterators.MultiprocessIterator(
+            train, args.batchsize, n_processes=8)
+        test_iter = chainer.iterators.MultiprocessIterator(
+            test, args.batchsize, repeat=False, shuffle=False, n_processes=8)
+    else:
+        train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
+        test_iter = chainer.iterators.SerialIterator(
+            test, args.batchsize, repeat=False, shuffle=False)
 
     # setup trainer
     updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu)
@@ -166,13 +188,13 @@ def main():
         extensions.PlotReport(['main/loss', 'validation/main/loss'],
                               'epoch', file_name='loss.png'))
     # plot acc graph
-    # trainer.extend(
-    #     extensions.PlotReport(
-    #         ['main/accuracy', 'validation/main/accuracy'],
-    #         'epoch', file_name='accuracy.png'))
+    trainer.extend(
+        extensions.PlotReport(
+            ['main/PSNR', 'validation/main/PSNR'],
+            'epoch', file_name='PSNR.png'))
     # print info
     trainer.extend(extensions.PrintReport(
-        ['epoch', 'main/loss', 'validation/main/loss', 'lr', 'elapsed_time']))
+        ['epoch', 'main/loss', 'validation/main/loss', 'main/PSNR', 'validation/main/PSNR', 'lr', 'elapsed_time']))
     # print progbar
     trainer.extend(extensions.ProgressBar())
 
