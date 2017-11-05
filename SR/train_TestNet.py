@@ -67,9 +67,9 @@ class DRLSR(chainer.Chain):
         h2 = F.relu(self.conv2(h1))
         h3 = F.relu(self.conv3(h2))
         h4 = F.relu(self.deconv1(h3))
-        h5 = F.relu(self.deconv2(h4))
-        h6 = F.relu(self.deconv3(h5))
-        return h6
+        h5 = F.relu(self.deconv2(h4 + h2))
+        h6 = F.relu(self.deconv3(h5 + h1))
+        return h6 + x
 
 
 def transform(data):
