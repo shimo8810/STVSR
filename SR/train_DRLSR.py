@@ -123,7 +123,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchsize', '-b', type=int, default=128,
                         help='Number of images in each mini-batch')
-    parser.add_argument('--learnrate', '-l', type=float, default=0.001,
+    parser.add_argument('--learnrate', '-l', type=float, default=0.1,
                         help='Learning rate for SGD')
     parser.add_argument('--epoch', '-e', type=int, default=300,
                         help='Number of sweeps over the dataset to train')
@@ -169,6 +169,7 @@ def main():
     optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
     optimizer.setup(model)
     optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+    optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
 
     # setup iter
     if args.iter_parallel:
