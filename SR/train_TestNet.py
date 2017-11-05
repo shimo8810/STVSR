@@ -58,9 +58,9 @@ class DRLSR(chainer.Chain):
             self.conv1 = L.Convolution2D(None, 16, ksize=5, stride=1, pad=0)
             self.conv2 = L.Convolution2D(None, 32, ksize=5, stride=1, pad=0)
             self.conv3 = L.Convolution2D(None, 64, ksize=5, stride=1, pad=0)
-            self.deconv1 = L.Deconvolution2D(None, 16, ksize=5, stride=1, pad=0)
-            self.deconv2 = L.Deconvolution2D(None, 32, ksize=5, stride=1, pad=0)
-            self.deconv3 = L.Deconvolution2D(None, 64, ksize=5, stride=1, pad=0)
+            self.deconv1 = L.Deconvolution2D(None, 32, ksize=5, stride=1, pad=0)
+            self.deconv2 = L.Deconvolution2D(None, 16, ksize=5, stride=1, pad=0)
+            self.deconv3 = L.Deconvolution2D(None, 1, ksize=5, stride=1, pad=0)
 
     def __call__(self, x):
         h1 = F.relu(self.conv1(x))
