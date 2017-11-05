@@ -137,7 +137,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/deconvTest')
+        ROOT_PATH, 'results/deconv_res_Test')
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
