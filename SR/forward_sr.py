@@ -71,6 +71,60 @@ class SRCNN(chainer.Chain):
         return h
 
 
+class DRLSR(chainer.Chain):
+    def __init__(self):
+        super(DRLSR, self).__init__()
+        with self.init_scope():
+            self.conv1_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
+            self.conv1_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2)
+            self.conv1_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4)
+            self.conv2 = L.Convolution2D(None, 16, ksize=1, stride=1, pad=0)
+            self.conv22 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1)
+            self.conv23 = L.Convolution2D(None, 16, ksize=1, stride=1, pad=0)
+            self.conv3_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
+            self.conv3_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2)
+            self.conv3_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4)
+            self.conv4 = L.Convolution2D(None, 1, ksize=1, stride=1, pad=0)
+
+    def __call__(self, x):
+        h = F.concat((F.relu(self.conv1_3(x)),
+                      F.relu(self.conv1_5(x)),
+                      F.relu(self.conv1_9(x))), axis=1)
+
+        h = F.relu(self.conv2(h))
+        h = F.relu(self.conv22(h))
+        h = F.relu(self.conv23(h))
+
+        h = F.concat((F.relu(self.conv3_3(h)),
+                      F.relu(self.conv3_5(h)),
+                      F.relu(self.conv3_9(h))), axis=1)
+
+        h = F.relu(self.conv4(h))
+
+        return h + x
+
+class VDSR(chainer.Chain):
+    def __init__(self, depth=5):
+        super(VDSR, self).__init__()
+        with self.init_scope():
+            self.conv_in = L.Convolution2D(None, 64, ksize=3, stride=1, pad=1)
+            self.conv_out = L.Convolution2D(None, 1, ksize=3, stride=1, pad=1)
+            self._forward_list = []
+            for i in range(depth - 2):
+                name = 'conv_{}'.format(i + 1)
+                conv = L.Convolution2D(None, 64, ksize=3, stride=1, pad=1)
+                setattr(self, name, conv)
+                self._forward_list.append(name)
+
+    def __call__(self, x):
+        h = F.relu(self.conv_in(x))
+        for name in self._forward_list:
+            l = getattr(self, name)
+            h = F.relu(l(h))
+        h = F.relu(self.conv_out(h))
+        return h + x
+
+
 def main():
     '''
     main function, start point

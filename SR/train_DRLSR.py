@@ -53,18 +53,19 @@ class GenEvaluator(chainer.Chain):
 
 class DRLSR(chainer.Chain):
     def __init__(self):
+        init_w = chainer.initializers.HeNormal()
         super(DRLSR, self).__init__()
         with self.init_scope():
-            self.conv1_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
-            self.conv1_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2)
-            self.conv1_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4)
-            self.conv2 = L.Convolution2D(None, 16, ksize=1, stride=1, pad=0)
-            self.conv22= L.Convolution2D(None, 16, ksize=3, stride=1, pad=1)
-            self.conv23= L.Convolution2D(None, 16, ksize=1, stride=1, pad=0)
-            self.conv3_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1)
-            self.conv3_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2)
-            self.conv3_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4)
-            self.conv4 = L.Convolution2D(None, 1, ksize=1, stride=1, pad=0)
+            self.conv1_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv1_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv1_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4, initialW=init_w)
+            self.conv2 = L.Convolution2D(None, 16, ksize=1, stride=1, pad=0, initialW=init_w)
+            self.conv22= L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv23= L.Convolution2D(None, 16, ksize=1, stride=1, pad=0, initialW=init_w)
+            self.conv3_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv3_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv3_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4, initialW=init_w)
+            self.conv4 = L.Convolution2D(None, 1, ksize=1, stride=1, pad=0, initialW=init_w)
 
     def __call__(self, x):
         h = F.concat((F.relu(self.conv1_3(x)), \

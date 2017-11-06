@@ -18,15 +18,15 @@ ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
 #データセットのパス
 DATA_PATH = '/media/shimo/HDD_storage/DataSet/UCF-101'
 # 保存先のパス
-SAVE_PATH = '/media/shimo/HDD_storage/DataSet/Train_Mini_UCF101'
+SAVE_PATH = '/media/shimo/HDD_storage/DataSet/Test_Mini_UCF101'
 
 # ハイパラ
 WIDTH = 41
 HEIGHT = 41
 NUM_FRAME = 3
 VAR_COEF = 0.003
-NUM_GRP = 5
-MAX_SEQ = 500
+NUM_GRP = 10
+MAX_SEQ = 10
 
 
 if __name__ == '__main__':
@@ -61,9 +61,11 @@ if __name__ == '__main__':
 
             # 画像群データ処理部分
             tmp_img_name = '{}_f*.tiff'.format(movie_name.split('.')[0])
-            img_path_list = glob.glob(path.join(SAVE_PATH, 'tmp', tmp_img_name))
+            img_path_list = glob.glob(
+                path.join(SAVE_PATH, 'tmp', tmp_img_name))
             img_height, img_width, img_ch = cv2.imread(img_path_list[0]).shape
-            images = np.zeros((len(img_path_list), img_height, img_width, img_ch), dtype=np.uint8)
+            images = np.zeros((len(img_path_list), img_height,
+                               img_width, img_ch), dtype=np.uint8)
 
             # parameter計算
             # フレームと縦横の分割数
@@ -75,9 +77,11 @@ if __name__ == '__main__':
                 images[idx, :, :, :] = cv2.imread(img)
 
             # フレームをクリッピング
-            images = images[:f_split * NUM_FRAME, : h_split * HEIGHT, : w_split * WIDTH, :]
+            images = images[:f_split * NUM_FRAME,
+                            : h_split * HEIGHT, : w_split * WIDTH, :]
             # Patchサイズに切り分け
-            buf = images.reshape(f_split, NUM_FRAME, h_split, HEIGHT, w_split, WIDTH, img_ch)
+            buf = images.reshape(f_split, NUM_FRAME, h_split,
+                                 HEIGHT, w_split, WIDTH, img_ch)
             # fsp, hsp, wsp, Nf, ch, H, Wに順番を入れ替え
             buf = buf.transpose((0, 2, 4, 1, 6, 3, 5))
             # データ数をプール
@@ -98,14 +102,17 @@ if __name__ == '__main__':
                 # 分散が一定以下なら無視
                 if sequence.var() < VAR_COEF:
                     continue
-                if random.random() < 0.2:
+                if random.random() < 0.4:
                     continue
-                seq_name = path.join(save_dir, '{}_sequence_{}'.format(act, count))
-                x_data = sequence[fidx, : , : , : ].astype(np.float32)
-                y_data = sequence[NUM_FRAME // 2, :, :,:].reshape(img_ch, HEIGHT, WIDTH).astype(np.float32)
+                seq_name = path.join(
+                    save_dir, '{}_sequence_{}'.format(act, count))
+                x_data = sequence[fidx, :, :, :].astype(np.float32)
+                y_data = sequence[NUM_FRAME // 2, :, :,
+                                  :].reshape(img_ch, HEIGHT, WIDTH).astype(np.float32)
                 np.savez(seq_name, x_data=x_data, y_data=y_data)
                 csvfile.writelines(seq_name + '.npz\n')
-                csvfile_loc.writelines('Train_Mini_UCF101/{}/group{}/{}_sequence_{}.npz\n'.format(act, gidx, act, count))
+                csvfile_loc.writelines(
+                    'Test_Mini_UCF101/{}/group{}/{}_sequence_{}.npz\n'.format(act, gidx, act, count))
                 count += 1
                 if count >= MAX_SEQ:
                     break

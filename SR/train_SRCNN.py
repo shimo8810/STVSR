@@ -22,6 +22,7 @@ from chainer.training import extensions
 from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
+from skimage.measure import compare_ssim as ssim
 
 #パス関連
 # このファイルの絶対パス
@@ -52,11 +53,12 @@ class GenEvaluator(chainer.Chain):
 
 class SRCNN(chainer.Chain):
     def __init__(self, ch_scale=1, fil_sizes=(9,5,5)):
+        init_w = chainer.initializers.HeNormal()
         super(SRCNN, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(None, ch_scale * 32, ksize=fil_sizes[0], stride=1, pad=fil_sizes[0] // 2)
-            self.conv2 = L.Convolution2D(None, ch_scale * 16, ksize=fil_sizes[1], stride=1, pad=fil_sizes[1] // 2)
-            self.conv3 = L.Convolution2D(None, 1, ksize=fil_sizes[2], stride=1, pad=fil_sizes[2] // 2)
+            self.conv1 = L.Convolution2D(None, ch_scale * 32, ksize=fil_sizes[0], stride=1, pad=fil_sizes[0] // 2, initialW=init_w)
+            self.conv2 = L.Convolution2D(None, ch_scale * 16, ksize=fil_sizes[1], stride=1, pad=fil_sizes[1] // 2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, 1, ksize=fil_sizes[2], stride=1, pad=fil_sizes[2] // 2, initialW=init_w)
 
     def __call__(self, x):
         h = F.relu(self.conv1(x))
