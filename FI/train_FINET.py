@@ -30,20 +30,22 @@ FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
 
+DATA_PATH = '/media/shimo/HDD_storage/DataSet'
+DATA_PATH = path.join(ROOT_PATH, 'dataset')
 
 class SequenceDataset(chainer.dataset.DatasetMixin):
     def __init__(self, dataset='train'):
         self.image_paths = []
         csv_path = None
         if dataset == 'train':
-            csv_path = 'dataset/Train_Mini_UCF101/train_data_loc.csv'
+            csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
         elif  dataset == 'test':
-            csv_path = 'dataset/Test_Mini_UCF101/train_data_loc.csv'
+            csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
 
-        with open(path.join(ROOT_PATH, csv_path)) as f:
+        with open(path.join(DATA_PATH, csv_path)) as f:
             reader = csv.reader(f)
             for row in reader:
-                self.image_paths.append(path.join(ROOT_PATH, 'dataset', row[0]))
+                self.image_paths.append(path.join(DATA_PATH, row[0]))
 
     def __len__(self):
         return len(self.image_paths)
