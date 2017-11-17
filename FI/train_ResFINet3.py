@@ -25,6 +25,9 @@ from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
 
+# ネットワーク
+import networks as N
+
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
@@ -35,30 +38,30 @@ ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
 DATA_PATH = path.join(ROOT_PATH, 'dataset')
 
 
-# class SequenceDataset(chainer.dataset.DatasetMixin):
-#     def __init__(self, dataset='train'):
-#         self.image_paths = []
-#         csv_path = None
-#         if dataset == 'train':
-#             csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
-#         elif  dataset == 'test':
-#             csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
-
-#         with open(path.join(DATA_PATH, csv_path)) as f:
-#             reader = csv.reader(f)
-#             for row in reader:
-#                 self.image_paths.append(path.join(DATA_PATH, row[0]))
-
-#     def __len__(self):
-#         return len(self.image_paths)
-
-#     def get_example(self, i):
-#         data = np.load(self.image_paths[i])
-#         x_data = data['x_data']
-#         y_data = data['y_data']
-#         return x_data, y_data
-
 class SequenceDataset(chainer.dataset.DatasetMixin):
+    def __init__(self, dataset='train'):
+        self.image_paths = []
+        csv_path = None
+        if dataset == 'train':
+            csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
+        elif  dataset == 'test':
+            csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
+
+        with open(path.join(DATA_PATH, csv_path)) as f:
+            reader = csv.reader(f)
+            for row in reader:
+                self.image_paths.append(path.join(DATA_PATH, row[0]))
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def get_example(self, i):
+        data = np.load(self.image_paths[i])
+        x_data = data['x_data']
+        y_data = data['y_data']
+        return x_data, y_data
+
+class SequenceDatasetOnMem(chainer.dataset.DatasetMixin):
     def __init__(self, dataset='train'):
         self.image_paths = []
         csv_path = None
@@ -89,44 +92,6 @@ class SequenceDataset(chainer.dataset.DatasetMixin):
 
     def get_example(self, i):
         return self.x_data[i], self.y_data[i]
-
-class GenEvaluator(chainer.Chain):
-    def __init__(self, generator):
-        super(GenEvaluator, self).__init__()
-        self.y = None
-        self.loss = None
-        self.psnr = None
-
-        with self.init_scope():
-            self.generator = generator
-
-    def __call__(self, x, t):
-        self.y = None
-        self.loss = None
-        self.psnr = None
-        self.y = self.generator(x)
-        self.loss = F.mean_squared_error(self.y, t)
-        self.psnr = 10 * F.log10(1.0 / self.loss)
-        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
-        return self.loss
-
-
-class FINET(chainer.Chain):
-    def __init__(self):
-        init_w = chainer.initializers.HeNormal()
-        super(FINET, self).__init__()
-        with self.init_scope():
-            self.conv1 = L.Convolution2D(None, 32, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv2 = L.Convolution2D(None, 16, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv3 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
-
-    def __call__(self, x):
-        h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
-        h = F.relu(self.conv1(h))
-        h = F.relu(self.conv2(h))
-        h = F.relu(self.conv3(h))
-        return h
-
 
 def main():
     '''
@@ -163,7 +128,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/FINET_opt_{}'.format(args.opt))
+        ROOT_PATH, 'results/ResFINet3_opt_{}'.format(args.opt))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -171,10 +136,10 @@ def main():
             f.write('{}:{}\n'.format(k, v))
 
     print('# loading dataet(General100_train, General100_test) ...')
-    train = SequenceDataset(dataset='train')
-    test = SequenceDataset(dataset='test')
+    train = SequenceDatasetOnMem(dataset='train')
+    test = SequenceDatasetOnMem(dataset='test')
    # prepare model
-    model = GenEvaluator(FINET())
+    model = N.GenEvaluator(N.ResFINet3())
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
@@ -190,9 +155,9 @@ def main():
     # setup iter
     if args.iter_parallel:
         train_iter = chainer.iterators.MultiprocessIterator(
-            train, args.batchsize, n_processes=8)
+            train, args.batchsize, n_processes=6)
         test_iter = chainer.iterators.MultiprocessIterator(
-            test, args.batchsize, repeat=False, shuffle=False, n_processes=8)
+            test, args.batchsize, repeat=False, shuffle=False, n_processes=6)
     else:
         train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
         test_iter = chainer.iterators.SerialIterator(
@@ -209,6 +174,8 @@ def main():
     # lr shift
     if args.opt == 'sgd':
         trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+    elif args.opt == 'adam':
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(

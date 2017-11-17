@@ -41,7 +41,7 @@ DATA_PATH = path.join(ROOT_PATH, 'dataset')
 #         csv_path = None
 #         if dataset == 'train':
 #             csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
-#         elif  dataset == 'test':
+#         elif dataset == 'test':
 #             csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
 
 #         with open(path.join(DATA_PATH, csv_path)) as f:
@@ -116,15 +116,23 @@ class FINET(chainer.Chain):
         init_w = chainer.initializers.HeNormal()
         super(FINET, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(None, 32, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv2 = L.Convolution2D(None, 16, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv3 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv1 = L.Convolution2D(None, 16, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.conv2 = L.Convolution2D(None, 32, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, 64, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.dconv4 = L.Deconvolution2D(None, 64, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.dconv5 = L.Deconvolution2D(None, 32, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.dconv6 = L.Deconvolution2D(None, 16, ksize=5, stride=1, pad=0, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
 
     def __call__(self, x):
         h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
         h = F.relu(self.conv1(h))
         h = F.relu(self.conv2(h))
         h = F.relu(self.conv3(h))
+        h = F.relu(self.dconv4(h))
+        h = F.relu(self.dconv5(h))
+        h = F.relu(self.dconv6(h))
+        h = F.relu(self.conv7(h))
         return h
 
 
@@ -146,7 +154,9 @@ def main():
                         help='Resume the training from snapshot')
     parser.add_argument('--iter_parallel', action='store_true', default=False,
                         help='filter(kernel) sizes')
-    parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='sgd')
+    parser.add_argument('--opt', '-o', type=str,
+                        choices=('adam', 'sgd'), default='sgd')
+
     args = parser.parse_args()
 
     # parameter出力
@@ -163,14 +173,14 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/FINET_opt_{}'.format(args.opt))
+        ROOT_PATH, 'results/FINET2_opt_{}'.format(args.opt))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
         for k, v in args.__dict__.items():
             f.write('{}:{}\n'.format(k, v))
 
-    print('# loading dataet(General100_train, General100_test) ...')
+    print('# loading dataet(General100, Set14) ...')
     train = SequenceDataset(dataset='train')
     test = SequenceDataset(dataset='test')
    # prepare model
@@ -227,7 +237,8 @@ def main():
             'epoch', file_name='PSNR.png'))
     # print info
     trainer.extend(extensions.PrintReport(
-        ['epoch', 'main/loss', 'validation/main/loss', 'main/PSNR', 'validation/main/PSNR', 'lr', 'elapsed_time']))
+        ['epoch', 'main/loss', 'validation/main/loss', 'main/PSNR',
+         'validation/main/PSNR', 'lr', 'elapsed_time']))
     # print progbar
     trainer.extend(extensions.ProgressBar())
 
