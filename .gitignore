@@ -104,5 +104,5 @@ dataset/
 *.hdf5
 results/*
 test/
-models/*
-examples/*
+models
+examples
