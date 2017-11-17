@@ -102,6 +102,7 @@ ENV/
 
 dataset/
 *.hdf5
-results/
+results/*
 test/
-models/
+models/*
+examples/*
