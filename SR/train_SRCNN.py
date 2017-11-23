@@ -24,47 +24,12 @@ from chainer.links.model.vision import resnet
 from chainercv import transforms
 from skimage.measure import compare_ssim as ssim
 
+import networks as N
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
-
-class GenEvaluator(chainer.Chain):
-    def __init__(self, generator):
-        super(GenEvaluator, self).__init__()
-        self.y = None
-        self.loss = None
-        self.psnr = None
-
-        with self.init_scope():
-            self.generator = generator
-
-    def __call__(self, x, t):
-        self.y = None
-        self.loss = None
-        self.psnr = None
-        self.y = self.generator(x)
-        self.loss = F.mean_squared_error(self.y, t)
-        self.psnr = 10 * F.log10(1.0 / self.loss)
-        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
-        return self.loss
-
-
-class SRCNN(chainer.Chain):
-    def __init__(self, ch_scale=1, fil_sizes=(9,5,5)):
-        init_w = chainer.initializers.HeNormal()
-        super(SRCNN, self).__init__()
-        with self.init_scope():
-            self.conv1 = L.Convolution2D(None, ch_scale * 32, ksize=fil_sizes[0], stride=1, pad=fil_sizes[0] // 2, initialW=init_w)
-            self.conv2 = L.Convolution2D(None, ch_scale * 16, ksize=fil_sizes[1], stride=1, pad=fil_sizes[1] // 2, initialW=init_w)
-            self.conv3 = L.Convolution2D(None, 1, ksize=fil_sizes[2], stride=1, pad=fil_sizes[2] // 2, initialW=init_w)
-
-    def __call__(self, x):
-        h = F.relu(self.conv1(x))
-        h = F.relu(self.conv2(h))
-        h = F.relu(self.conv3(h))
-        return h
 
 def transform(data):
     x_img, y_img = data
@@ -117,6 +82,8 @@ def main():
                         help='filter(kernel) sizes')
     parser.add_argument('--iter_parallel', action='store_true', default=False,
                         help='filter(kernel) sizes')
+    parser.add_argument('--opt', '-o', default='sgd',
+                        help='Resume the training from snapshot')
     args = parser.parse_args()
 
     # parameter出力
@@ -134,7 +101,9 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    outdir = path.join(ROOT_PATH, 'results/SRCNN_Channel_Scale_{}_Filter_Size_{}{}{}'.format(args.ch_scale, *args.fil_sizes))
+    outdir = path.join(ROOT_PATH,
+        'results/SRCNN_Channel_opt_{}_Scale_{}_Filter_Size_{}{}{}'.format(
+            args.opt, args.ch_scale, *args.fil_sizes))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -145,16 +114,21 @@ def main():
     train, test = load_dataset()
 
    # prepare model
-    model = GenEvaluator(SRCNN(ch_scale=args.ch_scale, fil_sizes=args.fil_sizes))
+    model = N.GenEvaluator(N.SRCNN(ch_scale=args.ch_scale, fil_sizes=args.fil_sizes))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
 
-
     # setup optimizer
-    optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
-    optimizer.setup(model)
-    optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+    if args.opt == 'sgd':
+        optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+        optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
+    elif args.opt == 'adam':
+        optimizer = chainer.optimizers.Adam(alpha=args.learnrate)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
 
     # setup iter
     if args.iter_parallel:
@@ -176,8 +150,10 @@ def main():
     # dump loss graph
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
-    trainer.extend(extensions.ExponentialShift(
-        "lr", 0.1), trigger=(100, 'epoch'))
+    if args.opt == 'sgd':
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+    elif args.opt == 'adam':
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(

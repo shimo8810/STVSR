@@ -23,54 +23,13 @@ from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
 
+import networks as N
+
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
-
-
-class GenEvaluator(chainer.Chain):
-    def __init__(self, generator):
-        super(GenEvaluator, self).__init__()
-        self.y = None
-        self.loss = None
-        self.psnr = None
-
-        with self.init_scope():
-            self.generator = generator
-
-    def __call__(self, x, t):
-        self.y = None
-        self.loss = None
-        self.psnr = None
-        self.y = self.generator(x)
-        self.loss = F.mean_squared_error(self.y, t)
-        self.psnr = 10 * F.log10(1.0 / self.loss)
-        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
-        return self.loss
-
-class VDSR(chainer.Chain):
-    def __init__(self, depth=5):
-        init_w = chainer.initializers.HeNormal()
-        super(VDSR, self).__init__()
-        with self.init_scope():
-            self.conv_in = L.Convolution2D(None, 64, ksize=3, stride=1, pad=1, initialW=init_w)
-            self._forward_list = []
-            for i in range(depth - 2):
-                name = 'conv_{}'.format(i + 1)
-                conv = L.Convolution2D(None, 64, ksize=3, stride=1, pad=1, initialW=init_w)
-                setattr(self, name, conv)
-                self._forward_list.append(name)
-            self.conv_out = L.Convolution2D(None, 1, ksize=3, stride=1, pad=1, initialW=init_w)
-
-    def __call__(self, x):
-        h = F.relu(self.conv_in(x))
-        for name in self._forward_list:
-            l = getattr(self, name)
-            h = F.relu(l(h))
-        h = F.relu(self.conv_out(h))
-        return h + x
 
 
 def transform(data):
@@ -124,6 +83,8 @@ def main():
                         help='depth para')
     parser.add_argument('--iter_parallel', action='store_true', default=False,
                         help='filter(kernel) sizes')
+    parser.add_argument('--opt', '-o', default='sgd',
+                        help='Resume the training from snapshot')
     args = parser.parse_args()
 
     # parameter出力
@@ -141,7 +102,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/VDSR_Depth_{}'.format(args.depth))
+        ROOT_PATH, 'results/VDSR_Depth_{}_opt_{}_lr_{}'.format(args.depth, args.opt, args.learnrate))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -152,16 +113,21 @@ def main():
     train, test = load_dataset()
 
    # prepare model
-    model = GenEvaluator(VDSR(depth=args.depth))
+    model = N.GenEvaluator(N.VDSR(depth=args.depth))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
 
     # setup optimizer
-    optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
-    optimizer.setup(model)
-    optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
-    optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
+    if args.opt == 'sgd':
+        optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+        optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
+    elif args.opt == 'adam':
+        optimizer = chainer.optimizers.Adam(alpha=args.learnrate)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
 
     # setup iter
     if args.iter_parallel:
@@ -183,8 +149,10 @@ def main():
     # dump loss graph
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
-    trainer.extend(extensions.ExponentialShift(
-        "lr", 0.1), trigger=(100, 'epoch'))
+    if args.opt == 'sgd':
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+    elif args.opt == 'adam':
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(

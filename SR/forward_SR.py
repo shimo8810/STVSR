@@ -1,6 +1,4 @@
 '''
-train SRCNN Network
-simple network
 '''
 import os
 from os import path
@@ -22,47 +20,15 @@ from chainer.training import extensions
 from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
+from skimage import io, color
+from scipy.misc import imresize
 
+import networks as N
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
-
-class GenEvaluator(chainer.Chain):
-    def __init__(self, generator):
-        super(GenEvaluator, self).__init__()
-        self.y = None
-        self.loss = None
-        self.psnr = None
-
-        with self.init_scope():
-            self.generator = generator
-
-    def __call__(self, x, t):
-        self.y = None
-        self.loss = None
-        self.psnr = None
-        self.y = self.generator(x)
-        self.loss = F.mean_squared_error(self.y, t)
-        self.psnr = 10 * F.log10(1.0 / self.loss)
-        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
-        return self.loss
-
-
-class SRCNN(chainer.Chain):
-    def __init__(self, ch_scale=1, fil_sizes=(9,5,5)):
-        super(SRCNN, self).__init__()
-        with self.init_scope():
-            self.conv1 = L.Convolution2D(None, ch_scale * 32, ksize=fil_sizes[0], stride=1, pad=fil_sizes[0] // 2)
-            self.conv2 = L.Convolution2D(None, ch_scale * 16, ksize=fil_sizes[1], stride=1, pad=fil_sizes[1] // 2)
-            self.conv3 = L.Convolution2D(None, 1, ksize=fil_sizes[2], stride=1, pad=fil_sizes[2] // 2)
-
-    def __call__(self, x):
-        h = F.relu(self.conv1(x))
-        h = F.relu(self.conv2(h))
-        h = F.relu(self.conv3(h))
-        return h
 
 
 def main():
@@ -73,21 +39,36 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchsize', '-b', type=int, default=128,
                         help='Number of images in each mini-batch')
-
+    parser.add_argument('--gpu', '-g', type=int, default=0,
+                        help='Number of images in each mini-batch')
+    parser.add_argument('--model', '-m', type=str,help=('Using Model'))
     args = parser.parse_args()
 
-    # parameter出力
+    img = io.imread(path.join(ROOT_PATH, 'examples/SR_example/Set_14/baboon.bmp'))
+    img_low = imresize(img, (img.shape[0] // 3, img.shape[1] // 3), interp='bicubic')
+    img_low = imresize(img_low, (img.shape[0], img.shape[1]), interp='bicubic')
+    print(img_low.shape)
+    
+    img_yuv = color.rgb2yuv(img_low).astype(np.float32)
+    print(img_yuv.shape, img_yuv.dtype, img_yuv[:,:,0].max(), img_yuv[:,:,0].min())
+    img_y = img_yuv[:,:,0]
+    print(img_y.shape, img_y.max(), img_y.min())
 
-    # 保存ディレクトリ
-    # save didrectory
-
-   # prepare model
-    model = GenEvaluator(SRCNN(ch_scale=args.ch_scale, fil_sizes=args.fil_sizes))
+    model = N.GenEvaluator(N.VDSR(depth=5))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
+        import cupy as cp
+        img_y = cp.array(img_y)
+    chainer.serializers.load_npz(path.join(ROOT_PATH, 'models/VDSR_Dp_5'), model)
 
-
-
+    img_y = img_y.reshape(1, 1, img_y.shape[0], img_y.shape[1])
+    with chainer.using_config('train', False):
+        with chainer.using_config('enable_backprop', False):
+            img_hr = model.generator(img_y).data # * 255
+    img_hr = chainer.cuda.to_cpu(img_hr) * 255
+    img_hr = img_hr.astype(np.uint8).reshape(img_y.shape[2], img_y.shape[3])
+    print(img_hr.max(), img_hr.min(), img_hr.mean(), img_hr.dtype, img_hr.shape)
+    io.imsave('hoge_sgd.bmp', img_hr)
 if __name__ == '__main__':
     main()

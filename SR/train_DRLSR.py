@@ -23,66 +23,12 @@ from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
 
+import networks as N
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
-
-
-class GenEvaluator(chainer.Chain):
-    def __init__(self, generator):
-        super(GenEvaluator, self).__init__()
-        self.y = None
-        self.loss = None
-        self.psnr = None
-
-        with self.init_scope():
-            self.generator = generator
-
-    def __call__(self, x, t):
-        self.y = None
-        self.loss = None
-        self.psnr = None
-        self.y = self.generator(x)
-        self.loss = F.mean_squared_error(self.y, t)
-        self.psnr = 10 * F.log10(1.0 / self.loss)
-        reporter.report({'loss': self.loss, 'PSNR': self.psnr}, self)
-        return self.loss
-
-
-class DRLSR(chainer.Chain):
-    def __init__(self):
-        init_w = chainer.initializers.HeNormal()
-        super(DRLSR, self).__init__()
-        with self.init_scope():
-            self.conv1_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv1_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv1_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4, initialW=init_w)
-            self.conv2 = L.Convolution2D(None, 16, ksize=1, stride=1, pad=0, initialW=init_w)
-            self.conv22= L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv23= L.Convolution2D(None, 16, ksize=1, stride=1, pad=0, initialW=init_w)
-            self.conv3_3 = L.Convolution2D(None, 8, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv3_5 = L.Convolution2D(None, 8, ksize=5, stride=1, pad=2, initialW=init_w)
-            self.conv3_9 = L.Convolution2D(None, 8, ksize=9, stride=1, pad=4, initialW=init_w)
-            self.conv4 = L.Convolution2D(None, 1, ksize=1, stride=1, pad=0, initialW=init_w)
-
-    def __call__(self, x):
-        h = F.concat((F.relu(self.conv1_3(x)), \
-                      F.relu(self.conv1_5(x)), \
-                      F.relu(self.conv1_9(x))), axis=1)
-
-        h = F.relu(self.conv2(h))
-        h = F.relu(self.conv22(h))
-        h = F.relu(self.conv23(h))
-
-        h = F.concat((F.relu(self.conv3_3(h)),
-                      F.relu(self.conv3_5(h)),
-                      F.relu(self.conv3_9(h))), axis=1)
-
-        h = F.relu(self.conv4(h))
-
-        return h + x
 
 
 def transform(data):
@@ -132,6 +78,8 @@ def main():
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
+    parser.add_argument('--opt', '-o', default='sgd',
+                        help='Resume the training from snapshot')
     parser.add_argument('--iter_parallel', action='store_true', default=False,
                         help='filter(kernel) sizes')
     args = parser.parse_args()
@@ -149,8 +97,7 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    outdir = path.join(
-        ROOT_PATH, 'results/DRLSR')
+    outdir = path.join(ROOT_PATH, 'results/DRLSR_opt_{}_lr_{}'.format(args.opt, args.learnrate))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -161,16 +108,22 @@ def main():
     train, test = load_dataset()
 
    # prepare model
-    model = GenEvaluator(DRLSR())
+    model = N.GenEvaluator(N.DRLSR())
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
 
     # setup optimizer
-    optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
-    optimizer.setup(model)
-    optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
-    optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
+    if args.opt == 'sgd':
+        optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+        optimizer.add_hook(chainer.optimizer.GradientClipping(0.1))
+    elif args.opt == 'adam':
+        optimizer = chainer.optimizers.Adam(alpha=args.learnrate)
+        optimizer.setup(model)
+        optimizer.add_hook(chainer.optimizer.WeightDecay(0.0001))
+
 
     # setup iter
     if args.iter_parallel:
@@ -192,8 +145,10 @@ def main():
     # dump loss graph
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
-    trainer.extend(extensions.ExponentialShift(
-        "lr", 0.1), trigger=(100, 'epoch'))
+    if args.opt == 'sgd':
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+    elif args.opt == 'adam':
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(
