@@ -47,13 +47,12 @@ if __name__ == '__main__':
                 if (crop_img.shape) != (HEIGHT, WIDTH):
                     continue
 
-                dwn_img = imresize(
-                    crop_img, (HEIGHT // SCALE, WIDTH // SCALE), interp='bicubic')
-                dwn_img = imresize(dwn_img, (HEIGHT, WIDTH), interp='bicubic')
+                down_img = imresize(crop_img, (HEIGHT // SCALE, WIDTH // SCALE), interp='bicubic')
+                down_img = imresize(down_img, (HEIGHT, WIDTH), interp='bicubic')
                 x_dset.resize((num_data + 1, 1, HEIGHT, WIDTH))
                 y_dset.resize((num_data + 1, 1, HEIGHT, WIDTH))
-                x_dset[num_data, :, :] = crop_img
-                y_dset[num_data, :, :] = dwn_img
+                x_dset[num_data, :, :] = down_img
+                y_dset[num_data, :, :] = crop_img
                 num_data += 1
                 h5file.flush()
 
