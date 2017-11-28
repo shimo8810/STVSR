@@ -53,7 +53,7 @@ def main():
     # save didrectory
 
    # prepare model
-    model = N.GenEvaluator(N.FINet3())
+    model = N.GenEvaluator(N.AEFINet(ch=2, f_size=3))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()

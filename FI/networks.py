@@ -199,6 +199,31 @@ class FINET2(chainer.Chain):
         h = F.relu(self.conv7(h))
         return h
 
+class FINet3(chainer.Chain):
+    '''
+    単純な3層構造
+    PSNR:25~6程度
+    モーションブラー(もとい入力のズレ)が発生する
+    '''
+    def __init__(self):
+        init_w = chainer.initializers.HeNormal()
+        super(FINet3, self).__init__()
+        with self.init_scope():
+            self.conv1_1 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv1_2 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv1 = L.Convolution2D(None, 32, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv2 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, 3, ksize=3, stride=1, pad=1, initialW=init_w)
+
+    def __call__(self, x):
+        h1 = F.relu(self.conv1_1(x[:, 0, :, :, :]))
+        h2 = F.relu(self.conv1_2(x[:, 1, :, :, :]))
+        h = F.concat((h1, h2), axis=1)
+        h = F.relu(self.conv1(h))
+        h = F.relu(self.conv2(h))
+        h = F.relu(self.conv3(h))
+        return h
+
 class ResFINet(chainer.Chain):
     '''
     FINet2にresを加えてみたヤツ
@@ -305,31 +330,6 @@ class ResFINet3(chainer.Chain):
         h = F.relu(self.conv(h))
         return h
 
-class FINet3(chainer.Chain):
-    '''
-    単純な3層構造
-    PSNR:25~6程度
-    モーションブラー(もとい入力のズレ)が発生する
-    '''
-    def __init__(self):
-        init_w = chainer.initializers.HeNormal()
-        super(FINet3, self).__init__()
-        with self.init_scope():
-            self.conv1_1 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv1_2 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv1 = L.Convolution2D(None, 32, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv2 = L.Convolution2D(None, 16, ksize=3, stride=1, pad=1, initialW=init_w)
-            self.conv3 = L.Convolution2D(None, 3, ksize=3, stride=1, pad=1, initialW=init_w)
-
-    def __call__(self, x):
-        h1 = F.relu(self.conv1_1(x[:, 0, :, :, :]))
-        h2 = F.relu(self.conv1_2(x[:, 1, :, :, :]))
-        h = F.concat((h1, h2), axis=1)
-        h = F.relu(self.conv1(h))
-        h = F.relu(self.conv2(h))
-        h = F.relu(self.conv3(h))
-        return h
-
 class DeepFINet(chainer.Chain):
     '''
     すごく深い
@@ -386,3 +386,40 @@ class DeepResFINet(chainer.Chain):
             h = F.relu(l(h)) + h
         h = F.relu(self.conv_out(h))
         return h
+
+class AEFINet(chainer.Chain):
+    '''
+    AE的に中間層のmapサイズを小さくするネットーワーク
+    実験用なのでフィルタサイズやデプス(最終的なmap縮小サイズ)を指定できる
+    args:
+        f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
+        ch: チャネル数のパラメータ
+    '''
+    def __init__(self, f_size=3, ch=2):
+        init_w = chainer.initializers.HeNormal()
+        n_ch = 8 * ch
+        super(AEFINet, self).__init__()
+
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None, n_ch, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv_down2 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_down4  = L.Convolution2D(None, n_ch * 4, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv5 = L.Convolution2D(None, n_ch * 4, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv_up6 = L.Deconvolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv9 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+
+    def __call__(self, x):
+        h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
+        h1 = F.relu(self.conv1(h)) # 8 , H, W
+        h  = F.relu(self.conv_down2(h1)) # 16, H/2, W/2
+        h2 = F.relu(self.conv3(h)) # 16, H/2, W/2
+        h  = F.relu(self.conv_down4(h2)) # 32, H/4, W/4
+        h = F.relu(self.conv5(h)) + h # 32, H/4, W/4
+        h = F.relu(self.conv_up6(h)) + h2 # 16, H/2, W/2
+        h = F.relu(self.conv7(h)) # 16, H/2, W/2
+        h = F.relu(self.conv_up8(h)) + h1 # 8 , H, W
+        return F.relu(self.conv9(h))
+
