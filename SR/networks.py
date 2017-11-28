@@ -194,3 +194,38 @@ class DRLSR(chainer.Chain):
         h = F.relu(self.conv4(h))
 
         return h + x
+
+class AESR(chainer.Chain):
+    '''
+    AE的に中間層のmapサイズを小さくするネットーワーク
+    実験用なのでフィルタサイズやデプス(最終的なmap縮小サイズ)を指定できる
+    args:
+        f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
+        ch: チャネル数のパラメータ
+    '''
+    def __init__(self, f_size=3, ch=1):
+        init_w = chainer.initializers.HeNormal()
+        n_ch = 8 * ch
+        super(AESR, self).__init__()
+
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None, n_ch, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv_down2 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_down4  = L.Convolution2D(None, n_ch * 4, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv5 = L.Convolution2D(None, n_ch * 4, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv_up6 = L.Deconvolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv9 = L.Convolution2D(None, 1, ksize=5, stride=1, pad=2, initialW=init_w)
+
+    def __call__(self, x):
+        h1 = F.relu(self.conv1(x)) # 8 , H, W
+        h  = F.relu(self.conv_down2(h1)) # 16, H/2, W/2
+        h2 = F.relu(self.conv3(h)) # 16, H/2, W/2
+        h  = F.relu(self.conv_down4(h2)) # 32, H/4, W/4
+        h = F.relu(self.conv5(h)) + h # 32, H/4, W/4
+        h = F.relu(self.conv_up6(h)) + h2 # 16, H/2, W/2
+        h = F.relu(self.conv7(h)) # 16, H/2, W/2
+        h = F.relu(self.conv_up8(h)) + h1 # 8 , H, W
+        return F.relu(self.conv9(h))
