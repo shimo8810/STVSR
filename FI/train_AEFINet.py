@@ -26,8 +26,9 @@ from chainer.datasets import (TupleDataset, TransformDataset)
 from chainer.links.model.vision import resnet
 from chainercv import transforms
 
-# ネットワーク
+# 自作ネットワーク, データセット読み込み
 import networks as N
+import datasets as ds
 
 #パス関連
 # このファイルの絶対パス
@@ -37,62 +38,6 @@ ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
 
 # DATA_PATH = '/media/shimo/HDD_storage/DataSet'
 DATA_PATH = path.join(ROOT_PATH, 'dataset')
-
-
-class SequenceDataset(chainer.dataset.DatasetMixin):
-    def __init__(self, dataset='train'):
-        self.image_paths = []
-        csv_path = None
-        if dataset == 'train':
-            csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
-        elif  dataset == 'test':
-            csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
-
-        with open(path.join(DATA_PATH, csv_path)) as f:
-            reader = csv.reader(f)
-            for row in reader:
-                self.image_paths.append(path.join(DATA_PATH, row[0]))
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def get_example(self, i):
-        data = np.load(self.image_paths[i])
-        x_data = data['x_data']
-        y_data = data['y_data']
-        return x_data, y_data
-
-class SequenceDatasetOnMem(chainer.dataset.DatasetMixin):
-    def __init__(self, dataset='train'):
-        self.image_paths = []
-        csv_path = None
-        if dataset == 'train':
-            csv_path = 'Train_Mini_UCF101/train_data_loc.csv'
-        elif  dataset == 'test':
-            csv_path = 'Test_Mini_UCF101/train_data_loc.csv'
-
-        with open(path.join(DATA_PATH, csv_path)) as f:
-            reader = csv.reader(f)
-            for row in reader:
-                self.image_paths.append(path.join(DATA_PATH, row[0]))
-
-        data = np.load(self.image_paths[0])
-        nf, ch, h, w = data['x_data'].shape
-        self.x_data = np.zeros((len(self.image_paths), nf, ch, h, w), dtype=np.float32)
-        ch, h, w = data['y_data'].shape
-        self.y_data = np.zeros((len(self.image_paths), ch, h, w), dtype=np.float32)
-
-        print("loading datasaet {} ...".format(dataset))
-        for i, p in tqdm(enumerate(self.image_paths)):
-            data = np.load(p)
-            self.x_data[i] = data['x_data']
-            self.y_data[i] = data['y_data']
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def get_example(self, i):
-        return self.x_data[i], self.y_data[i]
 
 def main():
     '''
@@ -113,8 +58,8 @@ def main():
     parser.add_argument('--iter_parallel', '-p', action='store_true', default=False,
                         help='loading dataset from disk')
     parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='sgd')
-    parser.add_argument('--fsize' , '-f', type=int ,default=3)
-    parser.add_argument('--ch' , '-c', type=int ,default=2)
+    parser.add_argument('--fsize' , '-f', type=int ,default=5)
+    parser.add_argument('--ch' , '-c', type=int ,default=4)
     args = parser.parse_args()
 
     # parameter出力
@@ -132,7 +77,7 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    model_dir_name = 'AEFINet_opt_{}_ch_{}_fsize_{}'.format(args.opt, args.ch, args.fsize)
+    model_dir_name = 'AEFINet_opt_{}_ch_{}_fsize_{}_dataaug'.format(args.opt, args.ch, args.fsize)
     outdir = path.join(ROOT_PATH, 'results', model_dir_name)
     if not path.exists(outdir):
         os.makedirs(outdir)
@@ -143,11 +88,11 @@ def main():
     #loading dataset
     print('# loading dataet(General100_train, General100_test) ...')
     if args.iter_parallel:
-        train = SequenceDataset(dataset='train')
-        test = SequenceDataset(dataset='test')
+        train = ds.SequenceDataset(dataset='train')
+        test = ds.SequenceDataset(dataset='test')
     else:
-        train = SequenceDatasetOnMem(dataset='train')
-        test = SequenceDatasetOnMem(dataset='test')
+        train = ds.SequenceDatasetOnMem(dataset='train')
+        test = ds.SequenceDatasetOnMem(dataset='test')
 
    # prepare model
     model = N.GenEvaluator(N.AEFINet(f_size=args.fsize, ch=args.ch))

@@ -120,7 +120,7 @@ class VGG16Evaluator(chainer.Chain):
                 y_cont = self.vgg16(self.y)
                 t_cont = self.vgg16(t)
         loss_cont = F.mean_squared_error(y_cont, t_cont)
-        self.loss = loss_cont + loss_mse
+        self.loss = 10 * loss_cont + loss_mse
         self.psnr = 10 * F.log10(1.0 / loss_mse)
         reporter.report({'loss': self.loss, 'loss_cont':loss_cont, 'loss_mse':loss_mse, 'PSNR': self.psnr}, self)
         return self.loss
