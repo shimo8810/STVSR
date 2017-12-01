@@ -53,7 +53,8 @@ def main():
     # save didrectory
 
    # prepare model
-    model = N.GenEvaluator(N.AEFINet(ch=2, f_size=3))
+   # 個々でネットワークを帰る
+    model = N.GenEvaluator(N.AEFINet(ch=6, f_size=5))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
@@ -69,7 +70,7 @@ def main():
     w = 941
 
     # 保存用ディレクトリの作成
-    save_path = path.join(ROOT_PATH, 'examples', 'result_acrobat_s01', args.model)
+    save_path = path.join(ROOT_PATH, 'examples', 'result_acrobat_s01', args.model.split('.')[0])
     if not path.exists(save_path):
         os.makedirs(save_path)
 

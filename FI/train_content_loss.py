@@ -111,8 +111,6 @@ def main():
     parser.add_argument('--iter_parallel', '-p', action='store_true', default=False,
                         help='filter(kernel) sizes')
     parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='adam')
-    parser.add_argument('--depth', '-d', type=int, default=3,
-                        help='DeepFINet Layer Depth')
     args = parser.parse_args()
 
     # parameter出力
@@ -129,7 +127,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/FINet_VGG_content_loss_opt_{}'.format(args.opt))
+        ROOT_PATH, 'results/AEFINet_VGG_content_loss_opt_{}'.format(args.opt))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -150,13 +148,13 @@ def main():
         chainer.cuda.get_device_from_id(args.gpu).use()
         vgg16.to_gpu()
     chainer.serializers.load_npz(path.join(ROOT_PATH, 'models/VGG16.npz'), vgg16)
-    model = N.VGG16Evaluator(N.DeepFINet(depth=args.depth), vgg16)
+    model = N.VGG16Evaluator(N.AEFINet(ch=4, f_size=5), vgg16)
     if args.gpu >= 0:
         model.to_gpu()
 
     # setup optimizer
     if args.opt == 'adam':
-        optimizer = chainer.optimizers.Adam()
+        optimizer = chainer.optimizers.Adam(alpha=args.learnrate)
     elif args.opt == 'sgd':
         optimizer = chainer.optimizers.MomentumSGD(lr=args.learnrate, momentum=0.9)
     optimizer.setup(model)
@@ -165,9 +163,9 @@ def main():
     # setup iter
     if args.iter_parallel:
         train_iter = chainer.iterators.MultiprocessIterator(
-            train, args.batchsize, n_processes=6)
+            train, args.batchsize, n_processes=8)
         test_iter = chainer.iterators.MultiprocessIterator(
-            test, args.batchsize, repeat=False, shuffle=False, n_processes=6)
+            test, args.batchsize, repeat=False, shuffle=False, n_processes=8)
     else:
         train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
         test_iter = chainer.iterators.SerialIterator(
@@ -185,7 +183,7 @@ def main():
     if args.opt == 'sgd':
         trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
     if args.opt == 'adam':
-        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(
