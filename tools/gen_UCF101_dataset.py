@@ -17,20 +17,23 @@ FILE_PATH = path.dirname(path.abspath(__file__))
 ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
 #データセットのパス
 DATA_PATH = '/media/shimo/HDD_storage/DataSet/UCF-101'
-# 保存先のパス
-SAVE_PATH = '/media/shimo/HDD_storage/DataSet/Train_Mini_UCF101'
 
 # ハイパラ
-WIDTH = 41
-HEIGHT = 41
+WIDTH = 64
+HEIGHT = 64
 NUM_FRAME = 3
 VAR_COEF = 0.003
 NUM_GRP = 5
 MAX_SEQ = 500
 
+# 保存先のパス
+SAVE_PATH = '/media/shimo/HDD_storage/DataSet/Train_Mini_UCF101_size{}_frame{}'.format(WIDTH, NUM_FRAME)
+
 
 if __name__ == '__main__':
     # アクション名 取得
+    if not path.exists(SAVE_PATH):
+        os.makedirs(path.join(SAVE_PATH, 'tmp'))
     act_list = os.listdir(DATA_PATH)
 
     # データが保存されているパスを記述するためのCSVファイル作成
@@ -105,7 +108,8 @@ if __name__ == '__main__':
                 y_data = sequence[NUM_FRAME // 2, :, :,:].reshape(img_ch, HEIGHT, WIDTH).astype(np.float32)
                 np.savez(seq_name, x_data=x_data, y_data=y_data)
                 csvfile.writelines(seq_name + '.npz\n')
-                csvfile_loc.writelines('Train_Mini_UCF101/{}/group{}/{}_sequence_{}.npz\n'.format(act, gidx, act, count))
+                csvfile_loc.writelines('Train_Mini_UCF101_size{}_frame{}/{}/group{}/{}_sequence_{}.npz\n'.format(
+                    WIDTH, NUM_FRAME, act, gidx, act, count))
                 count += 1
                 if count >= MAX_SEQ:
                     break
