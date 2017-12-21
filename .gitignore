@@ -110,3 +110,10 @@ Reports
 Reports/
 examples/
 dataset
+
+# TeX
+*.log
+*.dvi
+*.pdf
+*.gz
+*.aux
