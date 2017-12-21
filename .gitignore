@@ -117,4 +117,6 @@ dataset
 *.pdf
 *.gz
 *.aux
-docs/images/*
+docs/images/*.pdf
+docs/images/*.png
+docs/images/*.jpg
