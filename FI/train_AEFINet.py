@@ -80,7 +80,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     model_dir_name = 'AEFINet_opt_{}_ch_{}_fsize_{}'.format(args.opt, args.ch, args.fsize)
-    outdir = path.join(ROOT_PATH, 'results','AEFINet', model_dir_name)
+    outdir = path.join(ROOT_PATH, 'results','FI' ,'AEFINet', model_dir_name)
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -159,7 +159,7 @@ def main():
     # [ChainerUI] enable to send commands from ChainerUI
     trainer.extend(CommandsExtension())
     # [ChainerUI] save 'args' to show experimental conditions
-    save_args(args, args.out)
+    save_args(args, outdir)
 
     if args.resume:
         # Resume from a snapshot
