@@ -4,6 +4,7 @@
 '''
 import os
 from os import path
+import argparse
 import random
 import csv
 import glob
@@ -27,10 +28,25 @@ NUM_GRP = 5
 MAX_SEQ = 500
 
 # 保存先のパス
-SAVE_PATH = '/media/shimo/HDD_storage/DataSet/Train_Mini_UCF101_size{}_frame{}'.format(WIDTH, NUM_FRAME)
-
+SAVE_PATH = path.join(ROOT_PATH, 'dataset', 'Train_Mini_UCF101_size{}_frame{}'.format(WIDTH, NUM_FRAME))
 
 if __name__ == '__main__':
+    # 引数関連
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--width', '-w', type=int, default=64,
+                        help='width of sequence')
+    parser.add_argument('--height', '-h', type=int, default=64,
+                        help='height of sequence')
+    parser.add_argument('--frame', '-f', type=int, default=3,
+                        help="frames of sequence")
+    parser.add_argument('--var_coef', '-v', type=float, default=0.003,
+                        help='ignore sequence if frame wise var less than this coef.')
+    parser.add_argument('--num_group', '-g', type=int, default=5,
+                        help='number of scene groups')
+    parser.add_argument('--max_sequence', '-m', type=int, default=500,
+                        help='max sequence')
+    args = parser.parse_args()
+
     # アクション名 取得
     if not path.exists(SAVE_PATH):
         os.makedirs(path.join(SAVE_PATH, 'tmp'))
