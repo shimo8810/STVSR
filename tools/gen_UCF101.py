@@ -36,7 +36,7 @@ def main():
     args = parser.parse_args()
 
     save_path = path.join(ROOT_PATH, 'dataset',
-        'UCF101_{}_size{}_frame{}'.format(args.name, args.size, args.frame))
+        'UCF101_{}_size{}_frame{}_group{}_max{}'.format(args.name, args.size, args.frame, args.num_group, args.max_sequence))
 
     # parameter出力
     print("### DataSet Parameter ###")
@@ -68,7 +68,6 @@ def main():
     for act in tqdm(act_list):
         # 全動画ファイル取得
         act_path = path.join(DATA_PATH, act)
-        movie_list = os.listdir(act_path)
         # 全グループ25の中からnum_ groupだけ選ぶ
         for gidx, group in enumerate(random.sample(range(1, 25 + 1), args.num_group)):
             # 該当するカットを選択
