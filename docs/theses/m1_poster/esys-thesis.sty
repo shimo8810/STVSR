@@ -1,0 +1,45 @@
+\setlength{\textwidth}{455pt}
+\setlength{\textheight}{640pt}
+\setlength{\oddsidemargin}{20pt}
+\setlength{\evensidemargin}{-20pt}
+%
+\setlength{\floatsep}{8pt plus 1pt minus 0pt}
+\setlength{\dblfloatsep}{8pt plus 1pt minus 1pt}
+\setlength{\textfloatsep}{8pt plus 1pt minus 1pt}
+\setlength{\dbltextfloatsep}{8pt plus 1pt minus 1pt}
+%
+\def\topfraction{.99}
+\def\bottomfraction{.99}
+\def\textfraction{.0}
+\def\dbltextfraction{.0}
+\def\floatpagefraction{.99}
+\def\dbltopfraction{.99}
+\def\dblbottomfraction{.99}
+\def\dblfloatpagefraction{.99}
+%
+\def\esysid{\gdef\@esysid}
+\def\thepage{{\it \@esysid-\arabic{page}}}
+\pagestyle{myheadings}
+%
+\raggedbottom
+\ignorespaces{}
+%
+\long\def\eabstract#1{\gdef\@eabstract{#1}}
+%
+\def\@maketitle{\newpage
+ \null
+ \vskip 1em \begin{center}
+ {\LARGE \@title \par} \vskip 1.5em { \lineskip .5em
+\begin{tabular}[t]{c}
+  \@author
+\end{tabular}\par}
+\vskip 1em
+%%{
+  \begin{minipage}{.8\textwidth}
+    {\setlength{\parindent}{20pt}%
+    \noindent{\bf Abstract} -- \small \bf \@eabstract }
+  \end{minipage}
+%%}
+\end{center}
+\par
+\vskip 1.5em}

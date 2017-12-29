@@ -1,54 +1,36 @@
-\documentclass[11pt,a4paper,uplatex]{jsarticle}
-%パッケージ設定
-\usepackage{amsmath,amssymb}
-\usepackage{bm}
-\usepackage[dvipdfmx]{graphicx}
+\documentclass[twocolumn,a4j,uplatex]{jsarticle}
+\usepackage{esys-thesis} %筑波のスタイル
+\usepackage[dvipdfmx]{graphicx} %garphix
+\usepackage{amsmath,amssymb} %ams系
+\usepackage[T1]{fontenc} %T1 エンコーディング
+\usepackage{newtxtext, newtxmath} %Time系フォント
 \usepackage{ascmac}
-\usepackage{url}
-%レポート余白の設定
-\setlength{\textwidth}{\fullwidth}
-\setlength{\textheight}{40\baselineskip}
-\addtolength{\textheight}{\topskip}
-\setlength{\voffset}{-0.2in}
-\setlength{\topmargin}{0pt}
-\setlength{\headheight}{0pt}
-\setlength{\headsep}{0pt}
-\usepackage{listings}
-%キャプション番号設定（表）
+\usepackage{cite}
+\newcommand{\argmax}{\mathop{\rm arg~max}\limits}
 \makeatletter
-\renewcommand{\thetable}{\arabic{section}.\arabic{table}}
-\@addtoreset{table}{section}
+\renewcommand{\thepage}{知能機能システム専攻セミナー -\arabic{page}}
 \makeatother
-%キャプション番号設定（グラフ）
-\makeatletter
-\renewcommand{\thefigure}{\arabic{figure}}
-\@addtoreset{figure}{section}
-\makeatother
-%セクション名
-%\renewcommand{\thesection}{セクション名.\arabic{section}}
-%
-\lstset{
-	basicstyle={\small \ttfamily},%
-	%frame={tb},
-	breaklines=true,
-	columns=[l]{fullflexible},%
-	numbers=left,%
-	xrightmargin=0zw,%
-	xleftmargin=3zw,%
-	numberstyle={\scriptsize},%
-	numbersep=1zw,%
-	lineskip=-0.5ex%
-}
-\title{コンテンツ工学 最終課題}
-\author{下平勇斗 201720811}
-\date{}
+%論文本稿
+\pagestyle{myheadings}
+% タイトル
+\title{{\Large 多様な誤差関数を用いた深層学習による動画像の時空間超解像} \\
+Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Functions}
+% auther
+\author{{\Large 下平 勇斗} \\ Hayato SHIMODAIRA \\ (指導教員 延原 肇)}
+
+% 概要
+\eabstract{時空間動画超解像手法としてSTVSR}
 
 \begin{document}
 \maketitle
-\section*{コンテンツ技術の調査}
+\thispagestyle{headings}
+\section{概要}
+\section{先行研究}
+\section{提案手法}
+\section{実験}
+\section{結論}
 
-
-\begin{thebibliography}{100}
+\begin{thebibliography}{99}
 
 \end{thebibliography}
 \end{document}
