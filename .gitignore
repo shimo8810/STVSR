@@ -120,3 +120,5 @@ dataset
 docs/images/*.pdf
 docs/images/*.png
 docs/images/*.jpg
+*.fdb_latexmk
+*.fls
