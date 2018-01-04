@@ -122,3 +122,6 @@ docs/images/*.png
 docs/images/*.jpg
 *.fdb_latexmk
 *.fls
+*.bbl
+*.blg
+*.out
