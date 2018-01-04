@@ -4,8 +4,10 @@
 \usepackage{amsmath,amssymb} %ams系
 \usepackage[T1]{fontenc} %T1 エンコーディング
 \usepackage{newtxtext, newtxmath} %Time系フォント
-\usepackage{ascmac}
-\usepackage{cite}
+\usepackage{ascmac} % 特殊記号
+\usepackage{cite} % 引用
+\usepackage{url} % URL関連
+% \usepackage[dvipdfmx]{hyperref} %ハイパーリンク関連
 \newcommand{\argmax}{\mathop{\rm arg~max}\limits}
 \makeatletter
 \renewcommand{\thepage}{知能機能システム専攻セミナー -\arabic{page}}
@@ -25,13 +27,27 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 \maketitle
 \thispagestyle{headings}
 \section{概要}
+% 書く内容
+% 将来的には4k8kが必要となる , 総務省が言ってるからな
+% 超解像とかフレーム補間が必要になる
+% 数年前の超解像研究とかフレーム補間研究では従来の手法が使われていた
+% また近年深層学習を用いた学習が普及している
+% そこでフレーム補間と超解像を行うネットワークを構築する
+現在の日本におけるテレビ放送は地上デジタル放送で2K解像度での放送を行っているが,
+総務省によると2020年の東京オリンピック･パラリンピックに向けて,
+衛星放送やケーブルテレビ等を通して高解像度な4K,8K解像度の実用放送を開始する計画であり,
+2018年には衛星放送での4K,8K解像度の実用放送を開始する予定である~\cite{soumu}.
+
 \section{先行研究}
+% 書く内容
+% 対称性AEを用いている
+% Beyond MSR
 \section{提案手法}
 \section{実験}
 \section{結論}
 
-\begin{thebibliography}{99}
 
-\end{thebibliography}
+\bibliographystyle{jplain}
+\bibliography{biblio/web_page}
 \end{document}
 
