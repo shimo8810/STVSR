@@ -7,7 +7,7 @@
 \usepackage{ascmac} % 特殊記号
 \usepackage{cite} % 引用
 \usepackage{url} % URL関連
-% \usepackage[dvipdfmx]{hyperref} %ハイパーリンク関連
+\usepackage[dvipdfmx]{hyperref} %ハイパーリンク関連
 \newcommand{\argmax}{\mathop{\rm arg~max}\limits}
 \makeatletter
 \renewcommand{\thepage}{知能機能システム専攻セミナー -\arabic{page}}
@@ -37,13 +37,29 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 総務省によると2020年の東京オリンピック･パラリンピックに向けて,
 衛星放送やケーブルテレビ等を通して高解像度な4K,8K解像度の実用放送を開始する計画であり,
 2018年には衛星放送での4K,8K解像度の実用放送を開始する予定である~\cite{soumu}.
-しかし, 4K以前の映像作品の解像度は4K解像度と比較して
+
+しかし, 4K解像度の4K UHDTV(3840x2160)と比較して
+4K以前の映像作品の解像度はHDTV(1920x1080)で25\%, SDTV(720×480)で約4.2\%程度となり,
+過去の映像作品では将来のディスプレイの解像度に対応するために解像度を拡張する必要がある.
+この様な解像度を拡張する技術を超解像と呼び, 画像処理の一般の問題として広く知られている.
+超解像技術は単に同画像の拡張だけでなく,
+
+また, 旧来の映像作品は24fpsのフレームレートの映像作品が主流であるが,
+ディスプレイ性能の向上や映像作品の配信サービスの普及などによりフレームレートの向上に需要がある.
+フレーム数を増加させるためにはフレーム間の中間画像を生成する必要がある.
+この様な問題をフレーム補間と呼ぶ.
+
+
+
+
 
 
 \section{先行研究}
 % 書く内容
 % 対称性AEを用いている
 % Beyond MSR
+超解像の深層学習を用いた研究ではSRCNNという
+また画像を生成する深層学習を
 \section{提案手法}
 \section{実験}
 \section{結論}
