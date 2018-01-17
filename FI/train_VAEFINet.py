@@ -31,7 +31,7 @@ from chainerui.utils import save_args
 # 自作ネットワーク, データセット読み込み
 import networks as N
 import datasets as ds
-import cupy as cp
+
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
@@ -53,17 +53,15 @@ def main():
                         help='Learning rate for SGD')
     parser.add_argument('--epoch', '-e', type=int, default=100,
                         help='Number of sweeps over the dataset to train')
-    parser.add_argument('--gpu0', '-g', type=int, default=0,
-                        help='GPU1 ID (negative value indicates CPU)')
-    parser.add_argument('--gpu1', '-G', type=int, default=2,
-                        help='GPU2 ID (negative value indicates CPU)')
+    parser.add_argument('--gpu', '-g', type=int, default=0,
+                        help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
     parser.add_argument('--iter_parallel', '-p', action='store_true', default=False,
                         help='loading dataset from disk')
-    parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd'), default='adam')
-    parser.add_argument('--fsize' , '-f', type=int, default=5)
-    parser.add_argument('--ch' , '-c', type=int, default=4)
+    parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='sgd')
+    parser.add_argument('--fsize' , '-f', type=int ,default=5)
+    parser.add_argument('--ch' , '-c', type=int ,default=4)
     args = parser.parse_args()
 
     # parameter出力
@@ -81,8 +79,8 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    model_dir_name = 'AEFINet_opt_{}_ch_{}_fsize_{}'.format(args.opt, args.ch, args.fsize)
-    outdir = path.join(ROOT_PATH, 'results','FI' ,'AEFINet', model_dir_name)
+    model_dir_name = 'VAEFINet_opt_{}_ch_{}_fsize_{}'.format(args.opt, args.ch, args.fsize)
+    outdir = path.join(ROOT_PATH, 'results','FI' ,'VAEFINet', model_dir_name)
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -98,10 +96,11 @@ def main():
         train = ds.SequenceDatasetOnMem(dataset='train')
         test = ds.SequenceDatasetOnMem(dataset='test')
 
-    chainer.cuda.get_device_from_id(args.gpu0).use()
-
    # prepare model
-    model = N.GenEvaluator(N.AEFINet(f_size=args.fsize, ch=args.ch))
+    model = N.GenEvaluator(N.VAEFINet(f_size=args.fsize, ch=args.ch))
+    if args.gpu >= 0:
+        chainer.cuda.get_device_from_id(args.gpu).use()
+        model.to_gpu()
 
     # setup optimizer
     if args.opt == 'adam':
@@ -122,17 +121,12 @@ def main():
         test_iter = chainer.iterators.SerialIterator(
             test, args.batchsize, repeat=False, shuffle=False)
 
-
     # setup trainer
-    updater = training.ParallelUpdater(
-        train_iter,
-        optimizer,
-        devices={'main': args.gpu0, 'second': args.gpu1},
-    )
+    updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu)
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=outdir)
 
     # # eval test data
-    trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu0))
+    trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu))
     # dump loss graph
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
@@ -177,11 +171,11 @@ def main():
     model_outdir = path.join(ROOT_PATH, 'models', model_dir_name)
     if not path.exists(model_outdir):
         os.makedirs(model_outdir)
-    model_name = 'AEFINet_opt_{}_ch_{}_fsize_{}.npz'.format(args.opt, args.ch, args.fsize)
+    model_name = 'VAEFINet_opt_{}_ch_{}_fsize_{}.npz'.format(args.opt, args.ch, args.fsize)
     chainer.serializers.save_npz(path.join(model_outdir, model_name), model)
 
     model_parameter = {
-        'name': 'AEFINet',
+        'name': 'VAEFINet',
         'parameter': {'f_size':args.fsize, 'ch':args.ch}
     }
     with open(path.join(model_outdir, 'model_parameter.json'), 'w') as f:

@@ -100,7 +100,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchsize', '-b', type=int, default=128,
                         help='Number of images in each mini-batch')
-    parser.add_argument('--learnrate', '-l', type=float, default=0.01,
+    parser.add_argument('--learnrate', '-l', type=float, default=0.001,
                         help='Learning rate for SGD')
     parser.add_argument('--epoch', '-e', type=int, default=100,
                         help='Number of sweeps over the dataset to train')
@@ -127,7 +127,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(
-        ROOT_PATH, 'results/AEFINet_VGG_content_loss_opt_{}'.format(args.opt))
+        ROOT_PATH, 'results/FI/AEFINet/AEFINet_ch6_fsize5_VGG_content_loss_opt_{}'.format(args.opt))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -148,7 +148,7 @@ def main():
         chainer.cuda.get_device_from_id(args.gpu).use()
         vgg16.to_gpu()
     chainer.serializers.load_npz(path.join(ROOT_PATH, 'models/VGG16.npz'), vgg16)
-    model = N.VGG16Evaluator(N.AEFINet(ch=4, f_size=5), vgg16)
+    model = N.VGG16Evaluator(N.AEFINet(ch=6, f_size=5), vgg16)
     if args.gpu >= 0:
         model.to_gpu()
 

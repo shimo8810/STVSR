@@ -477,7 +477,7 @@ class VAEFINet(chainer.Chain):
         f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
         ch: チャネル数のパラメータ
     '''
-    def __init__(self, f_size=3, ch=2):
+    def __init__(self, f_size=3, ch=2, latent_size=1000):
         init_w = chainer.initializers.HeNormal()
         n_ch = 8 * ch
         super(AEFINet, self).__init__()
@@ -495,6 +495,9 @@ class VAEFINet(chainer.Chain):
             self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
             self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
             self.conv9 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+
+            self.mu = L.Linear(None, latent_size)
+            self.ln_var = L.Linear(None, latent_size)
 
 
     def __call__(self, x):
@@ -518,19 +521,18 @@ class VAEFINet(chainer.Chain):
         h  = F.relu(self.conv_down2(h1)) #output 16, H/2, W/2
         h2 = F.relu(self.conv3(h)) #output 16, H/2, W/2
         h  = F.relu(self.conv_down4(h2)) #output 32, H/4, W/4
-        mu = self.conv5(h)
-        ln_var = self.conv_ln_var(h)
-        return mu, ln_var
+        mu = self.mu(h)
+        var = self.ln_var(h)
+        return mu, var
 
     def get_loss_func(self, k=1):
         '''
         return loss func of vae
         '''
-        def loss(x):
+        def loss(x, y):
             mu, ln_var = self.encode(x)
             batchsize = len(mu.data)
+            #
             # reconstruction loss
-            rec_loss = 0
-            for _ in range(k):
-                z = F.gaussian(mu, ln_var)
+            rec_loss = F.mean_squared_error()
             return self.loss
