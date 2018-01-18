@@ -423,6 +423,42 @@ class AEFINet(chainer.Chain):
         h = F.relu(self.conv_up8(h)) + h1 # 8 , H, W
         return F.relu(self.conv9(h))
 
+class AEFINetConcat(chainer.Chain):
+    '''
+    AE的に中間層のmapサイズを小さくするネットーワーク
+    実験用なのでフィルタサイズやデプス(最終的なmap縮小サイズ)を指定できる
+    args:
+        f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
+        ch: チャネル数のパラメータ
+    '''
+    def __init__(self, f_size=3, ch=2):
+        init_w = chainer.initializers.HeNormal()
+        n_ch = 8 * ch
+        super(AEFINetConcat, self).__init__()
+
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None, n_ch, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv_down2 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_down4  = L.Convolution2D(None, n_ch * 4, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv5 = L.Convolution2D(None, n_ch * 4, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv_up6 = L.Deconvolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv9 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+
+    def __call__(self, x):
+        h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
+        h1 = F.relu(self.conv1(h)) # 8 , H, W
+        h  = F.relu(self.conv_down2(h1)) # 16, H/2, W/2
+        h2 = F.relu(self.conv3(h)) # 16, H/2, W/2
+        h  = F.relu(self.conv_down4(h2)) # 32, H/4, W/4
+        h = F.concat([F.relu(self.conv5(h)), h], axis=1)  # 32, H/4, W/4
+        h = F.concat([F.relu(self.conv_up6(h)), h2], axis=1) # 16, H/2, W/2
+        h = F.relu(self.conv7(h)) # 16, H/2, W/2
+        h = F.concat([F.relu(self.conv_up8(h)) + h1], axis=1) # 8 , H, W
+        return F.relu(self.conv9(h))
+
 class AEFINetBN(chainer.Chain):
     '''
     AE的に中間層のmapサイズを小さくするネットーワーク
@@ -468,6 +504,52 @@ class AEFINetBN(chainer.Chain):
         h = F.relu(self.norm7(self.conv7(h))) # 16, H/2, W/2
         h = F.relu(self.norm8(self.conv_up8(h))) + h1 # 8 , H, W
         return F.relu(self.norm9(self.conv9(h)))
+
+class AEFINetConcatBN(chainer.Chain):
+    '''
+    AE的に中間層のmapサイズを小さくするネットーワーク
+    実験用なのでフィルタサイズやデプス(最終的なmap縮小サイズ)を指定できる
+    BNありバージョン
+    args:
+        f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
+        ch: チャネル数のパラメータ
+    '''
+    def __init__(self, f_size=3, ch=2):
+        init_w = chainer.initializers.HeNormal()
+        n_ch = 8 * ch
+        super(AEFINetConcatBN, self).__init__()
+
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None, n_ch, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv_down2 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_down4  = L.Convolution2D(None, n_ch * 4, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv5 = L.Convolution2D(None, n_ch * 4, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv_up6 = L.Deconvolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv9 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.norm1 = L.BatchNormalization(n_ch)
+            self.norm2 = L.BatchNormalization(n_ch * 2)
+            self.norm3 = L.BatchNormalization(n_ch * 2)
+            self.norm4 = L.BatchNormalization(n_ch * 4)
+            self.norm5 = L.BatchNormalization(n_ch * 4)
+            self.norm6 = L.BatchNormalization(n_ch * 2)
+            self.norm7 = L.BatchNormalization(n_ch * 2)
+            self.norm8 = L.BatchNormalization(n_ch)
+            self.norm9 = L.BatchNormalization(3)
+
+    def __call__(self, x):
+        h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
+        h1 = F.relu(self.norm1(self.conv1(h))) # 8 , H, W
+        h  = F.relu(self.norm2(self.conv_down2(h1))) # 16, H/2, W/2
+        h2 = F.relu(self.norm3(self.conv3(h))) # 16, H/2, W/2
+        h  = F.relu(self.norm4(self.conv_down4(h2))) # 32, H/4, W/4
+        h = F.concat([F.relu(self.norm5(self.conv5(h))), h], axis=1) # 32, H/4, W/4
+        h = F.concat([F.relu(self.norm6(self.conv_up6(h))), h2], axis=1) # 16, H/2, W/2
+        h = F.relu(self.norm7(self.conv7(h))) # 16, H/2, W/2
+        h = F.concat([F.relu(self.norm8(self.conv_up8(h))), h1]) # 8 , H, W
+        return F.relu(self.conv9(h))
 
 class VAEFINet(chainer.Chain):
     '''
@@ -536,3 +618,41 @@ class VAEFINet(chainer.Chain):
             # reconstruction loss
             rec_loss = F.mean_squared_error()
             return self.loss
+
+class AEFINetConcat2(chainer.Chain):
+    '''
+    AE的に中間層のmapサイズを小さくするネットーワーク
+    実験用なのでフィルタサイズやデプス(最終的なmap縮小サイズ)を指定できる
+    args:
+        f_size:フィルタサイズ(カーネルサイズ), 中間層のフィルタサイズ統一
+        ch: チャネル数のパラメータ
+    '''
+    def __init__(self, f_size=3, ch=2):
+        init_w = chainer.initializers.HeNormal()
+        n_ch = 8 * ch
+        super(AEFINetConcat2, self).__init__()
+
+        with self.init_scope():
+            self.conv1 = L.Convolution2D(None, n_ch, ksize=5, stride=1, pad=2, initialW=init_w)
+            self.conv_down2 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv3 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_down4  = L.Convolution2D(None, n_ch * 4, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv5 = L.Convolution2D(None, n_ch * 4, ksize=3, stride=1, pad=1, initialW=init_w)
+            self.conv_up6 = L.Deconvolution2D(None, n_ch * 2, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv7 = L.Convolution2D(None, n_ch * 2, ksize=f_size, stride=1, pad=f_size//2, initialW=init_w)
+            self.conv_up8 = L.Deconvolution2D(None, n_ch, ksize=f_size, stride=2, pad=f_size//2, initialW=init_w)
+            self.conv9 = L.Convolution2D(None, 3, ksize=5, stride=1, pad=2, initialW=init_w)
+
+    def __call__(self, x):
+        # h = F.concat((x[:, 0, :, :, :], x[:, 1, :, :, :]), axis=1)
+        bs, f, c, w, h = x.shape
+        h = F.reshape(x, (bs, f * c, w, h))
+        h1 = F.relu(self.conv1(h)) # 8 , H, W
+        h  = F.relu(self.conv_down2(h1)) # 16, H/2, W/2
+        h2 = F.relu(self.conv3(h)) # 16, H/2, W/2
+        h  = F.relu(self.conv_down4(h2)) # 32, H/4, W/4
+        h = F.concat([F.relu(self.conv5(h)), h], axis=1)  # 32, H/4, W/4
+        h = F.concat([F.relu(self.conv_up6(h)), h2], axis=1) # 16, H/2, W/2
+        h = F.relu(self.conv7(h)) # 16, H/2, W/2
+        h = F.concat([F.relu(self.conv_up8(h)) + h1], axis=1) # 8 , H, W
+        return F.relu(self.conv9(h))

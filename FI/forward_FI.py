@@ -54,7 +54,7 @@ def main():
 
    # prepare model
    # 個々でネットワークを帰る
-    model = N.GenEvaluator(N.AEFINet(ch=4, f_size=5))
+    model = N.GenEvaluator(N.AEFINetConcat(ch=4, f_size=5))
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
