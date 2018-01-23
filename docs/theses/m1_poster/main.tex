@@ -18,10 +18,7 @@
 \title{{\Large 多様な誤差関数を用いた深層学習による動画像の時空間超解像} \\
 Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Functions}
 % auther
-\author{{\Large 下平 勇斗} \\ Hayato SHIMODAIRA \\ (指導教員 延原 肇)}
-
-% 概要
-\eabstract{時空間動画超解像手法としてSTVSR}
+\author{{\Large 下平 勇斗} \\ Hayato SHIMODAIRA \\ (指導教員 延原 肇, 丸山 勉、北原 格)}
 
 \begin{document}
 \maketitle
@@ -55,20 +52,36 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 本稿ではフレーム補間と超解像を複合し時空間超解像と呼び, 時空間超解像を行う深層学習を提案する.
 \section{先行研究}
 % 書く内容
+% SRCNN
+深層学習を用いた超解像の研究ではDongらのSRCNN\cite{Dong2015}がある.
+この研究では2, 3層のCNN層を用いるだけで既存の深層学習を
+使用しない超解像手法よりもPSNR, SSIMなどの複数の画像の評価手法で高精度であった.
+またこの研究ではCNN層を単純に増加させるだけでは精度は向上しない事が述べられており,
+複雑なネットワークの必要性を示唆している.
+
+% SDRL
+Heらのまた物体認識で高い識別精度を出したResNet\cite{He_2016_CVPR}で提案された
+Skip Connectionの構造は超解像やフレーム補間のネットワークにも適応され,
+超解像ではKimらのVDSR\cite{Kim_2016_CVPR}で適応されており,
+高解像画像と低解像画像の差分のスパース画像を学習するような構造になっている.
+
 % 対称性AEを用いている
-Xiao-Jiao Naoらは対称なSkip Conectionを用いたEncoder-Decoderモデルを提案した~\cite{DBLP:conf/nips/2016}.
+% Synmetric-ED
+Maoらは対称なSkip Connectionを用いたEncoder-Decoderモデルを提案した~\cite{DBLP:conf/nips/2016}.
 この研究では単一画像の超解像の為のネットワークを提案し,
-このネットワークではResNetの構造を取り入れResNetのSkip ConectionをEncoder-Decoderの層で対称になるように接続している.
+このネットワークではResNet\cite{He_2016_CVPR}の構造を取り入れResNetのSkip Conectionを
+Encoder-Decoderの層で対称になるように接続している.
+
+本研究でもSkip Connectionを用いたネットワーク構造を使用する.
 
 % Beyond MSR
-超解像の深層学習を用いた研究ではSRCNNという
-また画像を生成する深層学習を
+出力が画像となる様な深層学習のモデルでは誤差関数は平均二乗誤差(MSE)を一般に採用されるが,
 \subsection*{DEEP MULTI-SCALE VIDEO PREDICTION BEYOND MEAN SQUARE ERROR}
 \section{提案手法}
 \section{実験}
 \section{結論}
 
-\bibliographystyle{jplain}
+\bibliographystyle{junsrt}
 \bibliography{biblio/web_page}
 \end{document}
 

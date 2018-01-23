@@ -185,7 +185,7 @@ def main():
     if args.opt == 'sgd':
         trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
     elif args.opt == 'adam':
-        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(
