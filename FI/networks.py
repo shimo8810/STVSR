@@ -95,8 +95,7 @@ class VGG16(chainer.Chain):
         h = F.relu(self.conv5_1(h))
         h = F.relu(self.conv5_2(h))
         h5 = F.relu(self.conv5_3(h))
-        return h5
-        # return h1, h2, h3, h4, h5
+        return h1, h2, h3, h4, h5
 
 
 class VGG16Evaluator(chainer.Chain):
@@ -119,7 +118,13 @@ class VGG16Evaluator(chainer.Chain):
             with chainer.using_config('enable_backprop', False):
                 y_cont = self.vgg16(self.y)
                 t_cont = self.vgg16(t)
-        loss_cont = F.mean_squared_error(y_cont, t_cont)
+        loss_cont = None
+        for i in range(len(y_cont)):
+            if loss_cont is None:
+                loss_cont = F.mean_squared_error(y_cont[i], t_cont[i])
+            else:
+                loss_cont += F.mean_squared_error(y_cont[i], t_cont[i])
+
         self.loss = 10 * loss_cont + loss_mse
         self.psnr = 10 * F.log10(1.0 / loss_mse)
         reporter.report({'loss': self.loss, 'loss_cont':loss_cont, 'loss_mse':loss_mse, 'PSNR': self.psnr}, self)
