@@ -9,6 +9,8 @@
 \usepackage{url} % URL関連
 \usepackage[dvipdfmx]{hyperref} %ハイパーリンク関連
 \newcommand{\argmax}{\mathop{\rm arg~max}\limits}
+\renewcommand{\figurename}{Fig.}
+\renewcommand{\tablename}{Table }
 \makeatletter
 \renewcommand{\thepage}{知能機能システム専攻セミナー -\arabic{page}}
 \makeatother
@@ -23,7 +25,7 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 \begin{document}
 \maketitle
 \thispagestyle{headings}
-\section{概要}
+\section{はじめに}
 % 書く内容
 % 将来的には4k8kが必要となる , 総務省が言ってるからな
 % 超解像とかフレーム補間が必要になる
@@ -49,7 +51,10 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 フレーム補間や超解像などの画像処理の問題は古くから様々な手法で研究されてきたがその中でも,
 深層学習を用いた研究が昨今盛んに行われている.本研究でもフレーム補間と超解像を深層学習を用いて行う.
 
-本稿ではフレーム補間と超解像を複合し時空間超解像と呼び, 時空間超解像を行う深層学習を提案する.
+深層学習を用いた超解像やフレーム補間モデルは提案されているがその双方を行うモデルは無い.
+また先行研究で述べるように, 最小二乗誤差を誤差関数に用いることによる生成された画像がぼやけてしまう問題がある.
+これらの問題に対して, 最小二乗誤差以外の誤差関数も用いた深層学習モデルを提案する.
+
 \section{先行研究}
 % 書く内容
 % SRCNN
@@ -76,9 +81,62 @@ Encoder-Decoderの層で対称になるように接続している.
 
 % Beyond MSR
 出力が画像となる様な深層学習のモデルでは誤差関数は平均二乗誤差(MSE)を一般に採用されるが,
-\subsection*{DEEP MULTI-SCALE VIDEO PREDICTION BEYOND MEAN SQUARE ERROR}
+がMathieuら\cite{1511.05440}やLedigらの\cite{Ledig2016arxiv}の論文で
+平均二乗誤差を誤差関数とすることは高解像度の生成に寄与しない.
+平均二乗誤差では入力画像(低解像画像)に対応する正解画像(高解像画像)が必ずしも1つではなく
+複数存在するため, その複数の平均的な画像つまりぼやけた画像が生成されてしまう問題がある事が述べられている.
 \section{提案手法}
+\subsection{データ構造}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../../images/data.pdf}
+    \caption{動画シーケンスデータの構造}
+    \label{fig:dataset}
+\end{figure}
+
+学習に用いる動画シーケンスデータは図\ref{fig:dataset}の通り,入力画像群と出力画像の対である.
+元々の動画データから$N_f + 1$フレーム分だけ取り出し,
+取り出した画像群の中心の画像を正解画像, その他の画像群を入力画像群とする.
+入力画像群は合計で$N_f$フレーム存在し, それぞれのフレームを$f_i~(i = i,  2, \cdots , N_f)$とする.
+この$N_f$フレームの入力画像群から中心の正解画像を生成する.
+\subsection{モデル}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../../images/model.pdf}
+    \caption{学習モデルの構造}
+    \label{fig:model}
+\end{figure}
+ネットワークのモデルは文献\cite{DBLP:conf/nips/2016}のモデルを基礎にしたモデルを用いている.
+モデルは図\ref{fig:model}の通り, 中間層のサイズを変えないCNNとダウンサンプリングを含むCNNの対が複数含まれるEncoder層と
+中間層のサイズを変えないCNNとアップサンプリングを含むCNNの対が複数含まれるDecoder層,
+そしてそれらをつなぐSkip Connectionによって構成されている.
+このSkip Connectionは層の出力と足し合わせるのではなく層をconcatしている.
+活性化関数にはReLUを使用している.
+\subsection{誤差関数}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../../images/vgg16.pdf}
+    \caption{VGG16モデルを用いた誤差関数}
+    \label{fig:vgg16loss}
+\end{figure}
+
+誤差関数には通常の平均二乗誤差$L_{MSE}$だけでなく
+図\ref{fig:vgg16loss}のようなVGG16\cite{VGG16}の中間層を誤差とする誤差関数を用いた.
+これは先に述べられたとおり, 平均二乗誤差ではぼやけた画像が生成されてしまう問題が存在した.
+このためより画像の特徴に着目した誤差関数が必要であると考えた.
+物体の分類を識別するネットワークのFeature Mapでは浅い層では勾配方向や色などの情報が, 深い層ではより抽象的な情報が
+表現されている. これらの情報が生成された画像と正解画像で一致することによってより高精度の画像生成が行えると考え,
+既に学習済みの識別モデルのそれぞれの中間層を比較しそれを誤差関数とした.
+各Feature Map間の誤差は平均二乗誤差を使用した.
+ここでは学習済みの識別モデルとしてVGG16\cite{VGG16}を使用した.
+
 \section{実験}
+提案手法をフレーム補間に適応できるかを実験した.
+学習には動画分類タスク用のデータセットであるUCF101\cite{UCF101}を使用した.
+実装にはPythonとChainer\cite{chainer_learningsys2015}を使用し, 計算にはGeForce GTX 1080 Tiを使用した.
+最適化アルゴリズムはAdam\cite{kingma2014adam}を使用した.
+
+実験では
 \section{結論}
 
 \bibliographystyle{junsrt}
