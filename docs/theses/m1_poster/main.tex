@@ -127,7 +127,27 @@ Encoder-Decoderの層で対称になるように接続している.
 物体の分類を識別するネットワークのFeature Mapでは浅い層では勾配方向や色などの情報が, 深い層ではより抽象的な情報が
 表現されている. これらの情報が生成された画像と正解画像で一致することによってより高精度の画像生成が行えると考え,
 既に学習済みの識別モデルのそれぞれの中間層を比較しそれを誤差関数とした.
-各Feature Map間の誤差は平均二乗誤差を使用した.
+本研究ではこの誤差関数をFeature Mapから算出していることから特徴誤差と呼ぶ.
+
+ここでモデルから出力された画像を$I_o$, 正解画像を$I_t$とする.
+VGG16をFeature MapからFeature Mapへの写像であると考えると
+誤差として利用される$l$層目のFeature Mapから$l+1$層への写像$M_{l+1}$は
+\begin{align}
+    M_{l+1} : [0, 1]^{s_l} \mapsto [0, 1]^{s_{l+1}}
+\end{align}
+と定義できる.ここで$s_0$, $s_1$はそれぞれFeature Mapの要素数を表す.
+これよりVGG16への入力画像から$l+1$層への写像$V_{l+1}$は
+\begin{align}
+    V_{l+1} \coloneqq M_{l+1} \circ V_l : [0, 1]^{3 \times H \times W} \mapsto [0, 1]^{s_{l+1}}
+\end{align}
+と定義することができる.ここでH, Wは入力される画像の高さと幅である.
+出力画像$I_o$, 正解画像$I_t$に対するVGG16の$l$層目のそれぞれの出力$V_{l}(I_o)$, $V_{l}(I_t)$
+の各要素を$v_{o,l,i}$, $v_{t,l,i}$とおく.
+各要素の平均二乗誤差を取ることによって特徴誤差$L_{feat}$は
+\begin{align}
+    L_{feat} = \sum_{l=1}^5 \frac{k_l}{s_l} \sum_{i=1}^{s_l} (v_{o,l,i}-v_{t,l,i})^2
+\end{align}
+となる.ここで$k_l$は$l$層目のFeature Mapの重みである.
 ここでは学習済みの識別モデルとしてVGG16\cite{VGG16}を使用した.
 
 \section{実験}
@@ -135,8 +155,8 @@ Encoder-Decoderの層で対称になるように接続している.
 学習には動画分類タスク用のデータセットであるUCF101\cite{UCF101}を使用した.
 実装にはPythonとChainer\cite{chainer_learningsys2015}を使用し, 計算にはGeForce GTX 1080 Tiを使用した.
 最適化アルゴリズムはAdam\cite{kingma2014adam}を使用した.
+学習データは
 
-実験では
 \section{結論}
 
 \bibliographystyle{junsrt}
