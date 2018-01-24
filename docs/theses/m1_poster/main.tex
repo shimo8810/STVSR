@@ -8,6 +8,7 @@
 \usepackage{cite} % 引用
 \usepackage{url} % URL関連
 \usepackage[dvipdfmx]{hyperref} %ハイパーリンク関連
+\usepackage{subfigure}
 \newcommand{\argmax}{\mathop{\rm arg~max}\limits}
 \renewcommand{\figurename}{Fig.}
 \renewcommand{\tablename}{Table }
@@ -154,11 +155,70 @@ VGG16をFeature MapからFeature Mapへの写像であると考えると
 提案手法をフレーム補間に適応できるかを実験した.
 学習には動画分類タスク用のデータセットであるUCF101\cite{UCF101}を使用した.
 実装にはPythonとChainer\cite{chainer_learningsys2015}を使用し, 計算にはGeForce GTX 1080 Tiを使用した.
-最適化アルゴリズムはAdam\cite{kingma2014adam}を使用した.
-学習データは
+最適化アルゴリズムはAdam\cite{kingma2014adam}を使用した. 学習は100epochに設定した.
 
-\section{結論}
+学習に用いた動画シーケンスデータは学習用に約24万シーケンス, テスト用に約1万シーケンス程度使用した.
+動画シーケンスの構造は$H=64, W=64, N_f=2$とした.
+特徴誤差の重み$k_i$は全て1とした.
 
+実験では特徴誤差の効果を実験するため, 特徴誤差の有無による違いを比較した.
+
+学習時のテストデータに対する各epochのPSNRは図\ref{fig:PSNR}のとおりである.
+特徴誤差を付与したことによる収束速度の変化は見られなかった.
+また, PSNRは特徴誤差を付与した方が低く, 生成精度が悪化している.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{../../images/PSNR.pdf}
+    \caption{特徴誤差と平均二乗誤差を合わせたモデルと平均二乗誤差のみのPSNRの比較}
+    \label{fig:PSNR}
+\end{figure}
+
+また実際に生成された画像を確認する. これに用いた動画データはパブリックな高フレームレートの動画\cite{air}を使用した.
+この動画の一部分を切り取り\ref{fig:pic}に示す.
+この画像のPSNRとSSIMによる評価は表\ref{table:comp}に示す.
+
+図\ref{fig:pic}では特徴誤差を付与し生成された画像と平均二乗誤差のみで生成された画像を
+比較して, 特徴誤差を付与して生成された画像の方が前後のフレームが重なったような様な画像になってしまっている.
+ただし, 画像の輪郭はこちらの方が鮮明に見える.
+一方で平均二乗誤差の方ではぼやけてしまっているものの, フレームの重なりの影響は少なくなっている.
+
+特徴誤差によってフレーム補間のモデルはうまく機能しないことがわかった.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}{0.3\hsize}
+        \centering
+        \includegraphics[width=\linewidth]{../../images/ground_truth_0350_s.bmp}
+    \end{minipage}
+    \begin{minipage}{0.3\columnwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../images/FL_acrobat_s01_fi_0350_s.bmp}
+    \end{minipage}
+    \begin{minipage}{0.3\columnwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../images/MSE_acrobat_s01_fi_0350_s.bmp}
+    \end{minipage}
+    \caption{左から正解画像, 特徴誤差を付与したモデルから生成された画像, 平均二乗誤差のみのモデル生成された画像}
+    \label{fig:pic}
+\end{figure}
+
+\begin{table}[htbp]
+    \caption{PSNRとSSIMの比較}
+    \label{table:comp}
+    \begin{tabular}{|c|c|c|}\hline
+        評価指標 & 特徴誤差+平均二乗誤差 & 平均二乗誤差 \\ \hline
+        PSNR & 18.76 & 19.50 \\ \hline
+        SSIM & 0.715 & 0.643 \\ \hline
+    \end{tabular}
+\end{table}
+
+\section{総括}
+本稿では, 動画像を対称とした超解像とフレーム補間を行う深層学習のモデルを提案した.
+提案手法の特徴誤差を用いたフレーム補間では, 特徴誤差を用いない場合の方が高い精度になった.
+フレーム補間や超解像により適した誤差関数を策定する必要があることが示唆された.
+
+今後は新たな誤差関数を策定すると共に, VAEなどの生成モデルを考慮したモデルを使用したい.
 \bibliographystyle{junsrt}
 \bibliography{biblio/web_page}
 \end{document}
