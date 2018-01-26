@@ -661,3 +661,4 @@ class AEFINetConcat2(chainer.Chain):
         h = F.relu(self.conv7(h)) # 16, H/2, W/2
         h = F.concat([F.relu(self.conv_up8(h)) + h1], axis=1) # 8 , H, W
         return F.relu(self.conv9(h))
+
