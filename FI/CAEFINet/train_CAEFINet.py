@@ -22,23 +22,19 @@ import chainer.links as L
 import chainer.functions as F
 from chainer import (reporter, training)
 from chainer.training import extensions
-from chainer.datasets import (TupleDataset, TransformDataset)
-from chainer.links.model.vision import resnet
-from chainercv import transforms
 from chainerui.extensions import CommandsExtension
 from chainerui.utils import save_args
 
 # 自作ネットワーク, データセット読み込み
 import networks as N
-import datasets as ds
-
+import dataset as ds
+import cupy as cp
 #パス関連
 # このファイルの絶対パス
 FILE_PATH = path.dirname(path.abspath(__file__))
 # STVSRのパス
-ROOT_PATH = path.normpath(path.join(FILE_PATH, '../'))
+ROOT_PATH = path.normpath(path.join(FILE_PATH, '../../'))
 
-# DATA_PATH = '/media/shimo/HDD_storage/DataSet'
 DATA_PATH = path.join(ROOT_PATH, 'dataset')
 
 def main():
@@ -54,14 +50,18 @@ def main():
     parser.add_argument('--epoch', '-e', type=int, default=100,
                         help='Number of sweeps over the dataset to train')
     parser.add_argument('--gpu', '-g', type=int, default=0,
-                        help='GPU ID (negative value indicates CPU)')
+                        help='GPU1 ID (negative value indicates CPU)')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
     parser.add_argument('--iter_parallel', '-p', action='store_true', default=False,
                         help='loading dataset from disk')
-    parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='sgd')
+    parser.add_argument('--test', action='store_true', default=False,
+                        help='Test Mode, a few dataset')
+    parser.add_argument('--opt' , '-o', type=str, choices=('adam', 'sgd') ,default='adam')
     parser.add_argument('--fsize' , '-f', type=int ,default=5)
     parser.add_argument('--ch' , '-c', type=int ,default=4)
+    parser.add_argument('--decay' , '-d', type=str ,default='exp', choices=('exp', 'lin'))
+    parser.add_argument('--weight', '-w', type=float ,default=1.0)
     args = parser.parse_args()
 
     # parameter出力
@@ -72,6 +72,8 @@ def main():
     print("# Optimizer Method: {}".format(args.opt))
     print("# Filter Size: {}".format(args.fsize))
     print("# Channel Scale: {}".format(args.ch))
+    print("# coef. decay : {}".format(args.decay))
+    print("# contloss' weight : {}".format(args.weight))
     print('# Train Dataet: General 100')
     if args.iter_parallel:
         print("# Data Iters that loads in Parallel")
@@ -79,8 +81,8 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    model_dir_name = 'VAEFINet_opt_{}_ch_{}_fsize_{}'.format(args.opt, args.ch, args.fsize)
-    outdir = path.join(ROOT_PATH, 'results','FI' ,'VAEFINet', model_dir_name)
+    model_dir_name = 'CAEFINet_opt_{}_ch_{}_fsize_{}_decay_{}_weight_{}'.format(args.opt, args.ch, args.fsize, args.decay, args.weight)
+    outdir = path.join(ROOT_PATH, 'results','FI' ,'CAEFINet', model_dir_name)
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -88,16 +90,24 @@ def main():
             f.write('{}:{}\n'.format(k, v))
 
     #loading dataset
-    print('# loading dataet(General100_train, General100_test) ...')
-    if args.iter_parallel:
-        train = ds.SequenceDataset(dataset='train')
-        test = ds.SequenceDataset(dataset='test')
+    if args.test:
+        print('# loading test dataet(UCF101_minimam_test_size64_frame3_group2_max4_p) ...')
+        train_dataset = 'UCF101_minimam_test_size64_frame3_group2_max4_p'
+        test_dataset = 'UCF101_minimam_test_size64_frame3_group2_max4_p'
     else:
-        train = ds.SequenceDatasetOnMem(dataset='train')
-        test = ds.SequenceDatasetOnMem(dataset='test')
+        print('# loading test dataet(UCF101_train_size64_frame3_group10_max100_p, UCF101_test_size64_frame3_group25_max5_p) ...')
+        train_dataset = 'UCF101_train_size64_frame3_group10_max100_p'
+        test_dataset = 'UCF101_test_size64_frame3_group25_max5_p'
+
+    if args.iter_parallel:
+        train = ds.SequenceDataset(dataset=train_dataset)
+        test = ds.SequenceDataset(dataset=test_dataset)
+    else:
+        train = ds.SequenceDatasetOnMem(dataset=train_dataset)
+        test = ds.SequenceDatasetOnMem(dataset=test_dataset)
 
    # prepare model
-    model = N.GenEvaluator(N.VAEFINet(f_size=args.fsize, ch=args.ch))
+    model = N.CAEFINet(vgg_path=path.join(ROOT_PATH, 'models', 'VGG16.npz'), f_size=args.fsize, n_ch=args.ch, size=64)
     if args.gpu >= 0:
         chainer.cuda.get_device_from_id(args.gpu).use()
         model.to_gpu()
@@ -122,16 +132,16 @@ def main():
             test, args.batchsize, repeat=False, shuffle=False)
 
     # setup trainer
-    updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu)
+    updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu, loss_func=model.get_loss_func(weight=args.weight, coef_decay=args.decay))
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=outdir)
 
     # # eval test data
-    trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu))
+    trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu, eval_func=model.get_loss_func(weight=args.weight, coef_decay=args.decay)))
     # dump loss graph
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
     if args.opt == 'sgd':
-        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(50, 'epoch'))
     elif args.opt == 'adam':
         trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
     # save snapshot
@@ -144,15 +154,20 @@ def main():
     #  plot loss graph
     trainer.extend(
         extensions.PlotReport(['main/loss', 'validation/main/loss'],
-                              'epoch', file_name='loss.png'))
-    # plot acc graph
+                            'epoch', file_name='loss.png'))
     trainer.extend(
-        extensions.PlotReport(
-            ['main/PSNR', 'validation/main/PSNR'],
-            'epoch', file_name='PSNR.png'))
+        extensions.PlotReport(['main/mse_loss', 'validation/main/mse_loss'],
+                            'epoch', file_name='mse_loss.png'))
+    trainer.extend(
+        extensions.PlotReport(['main/cont_loss', 'validation/main/cont_loss'],
+                            'epoch', file_name='cont_loss.png'))
+    # plot acc graph
+    trainer.extend(extensions.PlotReport(['main/psnr', 'validation/main/psnr'],
+                            'epoch', file_name='PSNR.png'))
     # print info
     trainer.extend(extensions.PrintReport(
-        ['epoch', 'main/loss', 'validation/main/loss', 'main/PSNR', 'validation/main/PSNR', 'lr', 'elapsed_time']))
+        ['epoch', 'main/loss', 'validation/main/loss','main/mse_loss', 'validation/main/mse_loss',
+        'main/cont_loss', 'validation/main/cont_loss', 'main/psnr', 'validation/main/psnr', 'lr', 'elapsed_time']))
     # print progbar
     trainer.extend(extensions.ProgressBar())
 
@@ -171,11 +186,11 @@ def main():
     model_outdir = path.join(ROOT_PATH, 'models', model_dir_name)
     if not path.exists(model_outdir):
         os.makedirs(model_outdir)
-    model_name = 'VAEFINet_opt_{}_ch_{}_fsize_{}.npz'.format(args.opt, args.ch, args.fsize)
+    model_name = 'CAEFINet_{}_ch_{}_fsize_{}_decay_{}_weight_{}.npz'.format(args.opt, args.ch, args.fsize, args.decay, args.weight)
     chainer.serializers.save_npz(path.join(model_outdir, model_name), model)
 
     model_parameter = {
-        'name': 'VAEFINet',
+        'name': 'CAEFINetConcat',
         'parameter': {'f_size':args.fsize, 'ch':args.ch}
     }
     with open(path.join(model_outdir, 'model_parameter.json'), 'w') as f:

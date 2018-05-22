@@ -1,4 +1,4 @@
-\documentclass[twocolumn,a4j,uplatex]{jsarticle}
+\documentclass[twocolumn, a4j, uplatex]{jsarticle}
 \usepackage{esys-thesis} %筑波のスタイル
 \usepackage[dvipdfmx]{graphicx} %garphix
 \usepackage{amsmath,amssymb} %ams系
@@ -37,7 +37,6 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 総務省によると2020年の東京オリンピック･パラリンピックに向けて,
 衛星放送やケーブルテレビ等を通して高解像度な4K,8K解像度の実用放送を開始する計画であり,
 2018年には衛星放送での4K,8K解像度の実用放送を開始する予定である~\cite{soumu}.
-
 しかし, 4K解像度の4K UHDTV(3840x2160)と比較して
 4K以前の映像作品の解像度はHDTV(1920x1080)で25\%, SDTV(720×480)で約4.2\%程度となり,
 過去の映像作品では将来のディスプレイの解像度に対応するために解像度を拡張する必要がある.
@@ -55,6 +54,7 @@ Spatio-Temporal Video Super Resolution by Deep Learning Using Various Loss Funct
 深層学習を用いた超解像やフレーム補間モデルは提案されているがその双方を行うモデルは無い.
 また先行研究で述べるように, 最小二乗誤差を誤差関数に用いることによる生成された画像がぼやけてしまう問題がある.
 これらの問題に対して, 最小二乗誤差以外の誤差関数も用いた深層学習モデルを提案する.
+具体的には既存の既に学習されたネットワークモデルの中間層を利用した特徴誤差関数を提案する.
 
 \section{先行研究}
 % 書く内容
@@ -113,7 +113,7 @@ Encoder-Decoderの層で対称になるように接続している.
 そしてそれらをつなぐSkip Connectionによって構成されている.
 このSkip Connectionは層の出力と足し合わせるのではなく層をconcatしている.
 活性化関数にはReLUを使用している.
-\subsection{誤差関数}
+\subsection{提案誤差関数}
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.9\linewidth]{../../images/vgg16.pdf}
@@ -149,6 +149,7 @@ VGG16をFeature MapからFeature Mapへの写像であると考えると
     L_{feat} = \sum_{l=1}^5 \frac{k_l}{s_l} \sum_{i=1}^{s_l} (v_{o,l,i}-v_{t,l,i})^2
 \end{align}
 となる.ここで$k_l$は$l$層目のFeature Mapの重みである.
+ここで重み$k_i$は層が深いほど軽く, 層が浅いほど重くなるような層が進むにつれ減衰するような重みに設定する.
 ここでは学習済みの識別モデルとしてVGG16\cite{VGG16}を使用した.
 
 \section{実験}
@@ -159,64 +160,84 @@ VGG16をFeature MapからFeature Mapへの写像であると考えると
 
 学習に用いた動画シーケンスデータは学習用に約24万シーケンス, テスト用に約1万シーケンス程度使用した.
 動画シーケンスの構造は$H=64, W=64, N_f=2$とした.
-特徴誤差の重み$k_i$は全て1とした.
+特徴誤差の重み$k_i$は指数的減衰重みと線形的減衰重みの2種類を使用した.
 
 実験では特徴誤差の効果を実験するため, 特徴誤差の有無による違いを比較した.
 
+% 以下修正箇所
 学習時のテストデータに対する各epochのPSNRは図\ref{fig:PSNR}のとおりである.
-特徴誤差を付与したことによる収束速度の変化は見られなかった.
-また, PSNRは特徴誤差を付与した方が低く, 生成精度が悪化している.
-
+% 特徴誤差を付与したことによる収束速度の変化は見られなかった.
+% また, PSNRは特徴誤差を付与した方が低く, 生成精度が悪化している.
+特徴誤差関数を導入した曲線では平均2乗誤差のものよりも収束が早く, また最終的なPSNR値つまり
+生成の精度も向上していることがわかる.
+それぞれのPSNRの最終的な値は重みが線形的減衰な特徴誤差関数を付与したモデルでは28.888 [db],
+重みが指数関数的減衰する特徴誤差関数を付与したモデルは28.919 [db],
+平均2乗誤差のみのモデルは28.882 [db]であった.
+重みの選び方については線形的減衰の重みよりも指数的減衰の重みの方がより高い生成精度であった.
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.9\linewidth]{../../images/PSNR.pdf}
+    \includegraphics[width=0.9\linewidth]{../../images/PSNR_2.pdf}
     \caption{特徴誤差と平均二乗誤差を合わせたモデルと平均二乗誤差のみのPSNRの比較}
     \label{fig:PSNR}
 \end{figure}
 
+% また実際に生成された画像を確認する. これに用いた動画データはパブリックな高フレームレートの動画\cite{air}を使用した.
+% この動画の一部分を切り取り\ref{fig:pic}に示す.
+% この画像のPSNRとSSIMによる評価は表\ref{table:comp}に示す.
+
+% 図\ref{fig:pic}では特徴誤差を付与し生成された画像と平均二乗誤差のみで生成された画像を
+% 比較して, 特徴誤差を付与して生成された画像の方が前後のフレームが重なったような様な画像になってしまっている.
+% ただし, 画像の輪郭はこちらの方が鮮明に見える.
+% 一方で平均二乗誤差の方ではぼやけてしまっているものの, フレームの重なりの影響は少なくなっている.
+
+% 特徴誤差によってフレーム補間のモデルはうまく機能しないことがわかった.
+
 また実際に生成された画像を確認する. これに用いた動画データはパブリックな高フレームレートの動画\cite{air}を使用した.
 この動画の一部分を切り取り\ref{fig:pic}に示す.
 この画像のPSNRとSSIMによる評価は表\ref{table:comp}に示す.
-
 図\ref{fig:pic}では特徴誤差を付与し生成された画像と平均二乗誤差のみで生成された画像を
-比較して, 特徴誤差を付与して生成された画像の方が前後のフレームが重なったような様な画像になってしまっている.
-ただし, 画像の輪郭はこちらの方が鮮明に見える.
-一方で平均二乗誤差の方ではぼやけてしまっているものの, フレームの重なりの影響は少なくなっている.
-
-特徴誤差によってフレーム補間のモデルはうまく機能しないことがわかった.
+比較して, 鮮明度に関してMSEと提案誤差関数で視覚的な有意な差は見られなかった.
 
 \begin{figure}[htbp]
     \centering
-    \begin{minipage}{0.3\hsize}
+    \begin{minipage}{0.23\hsize}
         \centering
-        \includegraphics[width=\linewidth]{../../images/ground_truth_0350_s.bmp}
+        \includegraphics[width=\linewidth]{../../images/grd_croped_fi_300.bmp}
     \end{minipage}
-    \begin{minipage}{0.3\columnwidth}
+    \begin{minipage}{0.23\columnwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../images/FL_acrobat_s01_fi_0350_s.bmp}
+        \includegraphics[width=\linewidth]{../../images/exp_croped_fi_300.bmp}
     \end{minipage}
-    \begin{minipage}{0.3\columnwidth}
+    \begin{minipage}{0.23\columnwidth}
         \centering
-        \includegraphics[width=\linewidth]{../../images/MSE_acrobat_s01_fi_0350_s.bmp}
+        \includegraphics[width=\linewidth]{../../images/lin_croped_fi_300.bmp}
     \end{minipage}
-    \caption{左から正解画像, 特徴誤差を付与したモデルから生成された画像, 平均二乗誤差のみのモデル生成された画像}
+    \begin{minipage}{0.23\columnwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../../images/mse_croped_fi_300.bmp}
+    \end{minipage}
+    \caption{左から正解画像, 指数的減衰重み特徴誤差を付与したモデルから生成された画像,線形的減衰重み特徴誤差を付与したモデルから生成された画像, 平均2乗誤差のみのモデルから生成された画像}
     \label{fig:pic}
 \end{figure}
 
 \begin{table}[htbp]
     \caption{PSNRとSSIMの比較}
     \label{table:comp}
-    \begin{tabular}{|c|c|c|}\hline
-        評価指標 & 特徴誤差+平均二乗誤差 & 平均二乗誤差 \\ \hline
-        PSNR & 18.76 & 19.50 \\ \hline
-        SSIM & 0.715 & 0.643 \\ \hline
+    \begin{tabular}{|c|c|c|c|}\hline
+        評価指標 & 提案手法(指数) & 提案手法(線形)& MSE \\ \hline
+        PSNR & 28.74 & 28.51  & 28.67 \\ \hline
+        SSIM & 0.949 & 0.926 & 0.949 \\ \hline
     \end{tabular}
 \end{table}
 
-\section{総括}
+
+\section{おわりに}
 本稿では, 動画像を対称とした超解像とフレーム補間を行う深層学習のモデルを提案した.
-提案手法の特徴誤差を用いたフレーム補間では, 特徴誤差を用いない場合の方が高い精度になった.
-フレーム補間や超解像により適した誤差関数を策定する必要があることが示唆された.
+% 提案手法の特徴誤差を用いたフレーム補間では, 特徴誤差を用いない場合の方が高い精度になった.
+% フレーム補間や超解像により適した誤差関数を策定する必要があることが示唆された.
+提案誤差関数を用いることによって生成精度が向上することが確認できたが, 視覚的には
+大きな差異は見られなかった.
+今後は鮮明性により注意した誤差関数を提案すると共に, VAEなどの連続するデータの生成に向く生成モデルなどを使用したい.
 
 今後は新たな誤差関数を策定すると共に, VAEなどの生成モデルを考慮したモデルを使用したい.
 \bibliographystyle{junsrt}
