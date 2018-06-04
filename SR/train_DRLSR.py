@@ -97,7 +97,7 @@ def main():
 
     # 保存ディレクトリ
     # save didrectory
-    outdir = path.join(ROOT_PATH, 'results/DRLSR_opt_{}_lr_{}'.format(args.opt, args.learnrate))
+    outdir = path.join(ROOT_PATH, 'results/SR/DRLSR_opt_{}_lr_{}'.format(args.opt, args.learnrate))
     if not path.exists(outdir):
         os.makedirs(outdir)
     with open(path.join(outdir, 'arg_param.txt'), 'w') as f:
@@ -146,9 +146,9 @@ def main():
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
     if args.opt == 'sgd':
-        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(50, 'epoch'))
     elif args.opt == 'adam':
-        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(

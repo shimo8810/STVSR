@@ -76,7 +76,7 @@ def main():
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--resume', '-r', default='',
                         help='Resume the training from snapshot')
-    parser.add_argument('--ch_scale', '-c', type=int, default=1,
+    parser.add_argument('--ch_scale', '-c', type=int, default=2,
                         help='ch scale')
     parser.add_argument('--fil_sizes', '-f', type=int, nargs='+', default=[9, 5, 5],
                         help='filter(kernel) sizes')
@@ -102,7 +102,7 @@ def main():
     # 保存ディレクトリ
     # save didrectory
     outdir = path.join(ROOT_PATH,
-        'results/SRCNN_Channel_opt_{}_Scale_{}_Filter_Size_{}{}{}'.format(
+        'results/SR/SRCNN_Channel_opt_{}_Scale_{}_Filter_Size_{}{}{}'.format(
             args.opt, args.ch_scale, *args.fil_sizes))
     if not path.exists(outdir):
         os.makedirs(outdir)
@@ -151,9 +151,9 @@ def main():
     trainer.extend(extensions.dump_graph('main/loss'))
     # lr shift
     if args.opt == 'sgd':
-        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("lr", 0.1), trigger=(50, 'epoch'))
     elif args.opt == 'adam':
-        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(100, 'epoch'))
+        trainer.extend(extensions.ExponentialShift("alpha", 0.1), trigger=(50, 'epoch'))
     # save snapshot
     trainer.extend(extensions.snapshot(), trigger=(10, 'epoch'))
     trainer.extend(extensions.snapshot_object(
